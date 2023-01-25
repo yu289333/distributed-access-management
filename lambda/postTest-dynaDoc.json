@@ -1,0 +1,11 @@
+{
+    "httpMethod": "POST",
+    "body": {
+      "TableName": "jsonPolicies",
+      "Item": {
+        "Name": "testPolicy",
+        "Domain": "AWS279052253001",
+        "Policy": "{test}"
+      }
+    }
+}
