@@ -1,0 +1,205 @@
+allowGetSecretValue
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetResourcePolicy",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecretVersionIds"
+            ],
+            "Resource": "arn:aws:secretsmanager:us-east-1:279052253001:secret:pg_proguser-xrn7hy"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": "secretsmanager:GetRandomPassword",
+            "Resource": "*"
+        }
+    ]
+}
+
+AWSLambdaBasicExecutionRole-02355e7a-5b94-4897-b122-9f77aebfb370
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "logs:CreateLogGroup",
+            "Resource": "arn:aws:logs:us-east-1:279052253001:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": [
+                "arn:aws:logs:us-east-1:279052253001:log-group:/aws/lambda/hello_world:*"
+            ]
+        }
+    ]
+}
+
+"AmazonEC2FullAccess": {
+        "Arn": "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+        "AttachmentCount": 0,
+        "CreateDate": "2015-02-06T18:40:15+00:00",
+        "DefaultVersionId": "v1",
+        "Document": {
+            "Statement": [
+                {
+                    "Action": "ec2:*",
+                    "Effect": "Allow",
+                    "Resource": "*"
+                },
+                {
+                    "Action": "elasticloadbalancing:*",
+                    "Effect": "Allow",
+                    "Resource": "*"
+                },
+                {
+                    "Action": "cloudwatch:*",
+                    "Effect": "Allow",
+                    "Resource": "*"
+                },
+                {
+                    "Action": "autoscaling:*",
+                    "Effect": "Allow",
+                    "Resource": "*"
+                }
+            ],
+            "Version": "2012-10-17"
+        },
+        "IsAttachable": true,
+        "IsDefaultVersion": true,
+        "Path": "/",
+        "PolicyId": "ANPAI3VAJF5ZCRZ7MCQE6",
+        "PolicyName": "AmazonEC2FullAccess",
+        "UpdateDate": "2015-02-06T18:40:15+00:00",
+        "VersionId": "v1"
+    }
+    
+function2CreateInterface
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateNetworkInterface",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DeleteNetworkInterface"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DetachNetworkInterface",
+                "ec2:AttachNetworkInterface"
+            ],
+            "Resource": [
+                "arn:aws:ec2:*:279052253001:network-interface/*",
+                "arn:aws:ec2:*:279052253001:instance/*"
+            ]
+        }
+    ]
+}
+
+MC_SGS_Mandated_MFA_Policy
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "iam:ListUsers",
+                "iam:GetAccountPasswordPolicy"
+            ],
+            "Resource": "*",
+            "Effect": "Allow",
+            "Sid": "AllowAllUsersToListUsers"
+        },
+        {
+            "Action": [
+                "iam:ChangePassword",
+                "iam:GetLoginProfile",
+                "iam:UpdateLoginProfile",
+                "iam:GetUser"
+            ],
+            "Resource": "arn:aws:iam::*:user/${aws:username}",
+            "Effect": "Allow",
+            "Sid": "AllowIndividualUserToSeeAndManageOnlyTheirOwnAccountInformation"
+        },
+        {
+            "Action": [
+                "iam:ListMFADevices"
+            ],
+            "Resource": [
+                "arn:aws:iam::*:mfa/*",
+                "arn:aws:iam::*:user/${aws:username}"
+            ],
+            "Effect": "Allow",
+            "Sid": "AllowIndividualUserToListOnlyTheirOwnMFA"
+        },
+        {
+            "Action": [
+                "iam:CreateVirtualMFADevice",
+                "iam:DeleteVirtualMFADevice",
+                "iam:EnableMFADevice",
+                "iam:ResyncMFADevice"
+            ],
+            "Resource": [
+                "arn:aws:iam::*:mfa/${aws:username}",
+                "arn:aws:iam::*:user/${aws:username}"
+            ],
+            "Effect": "Allow",
+            "Sid": "AllowIndividualUserToManageTheirOwnMFA"
+        },
+        {
+            "Condition": {
+                "Bool": {
+                    "aws:MultiFactorAuthPresent": "true"
+                }
+            },
+            "Action": [
+                "iam:DeactivateMFADevice"
+            ],
+            "Resource": [
+                "arn:aws:iam::*:mfa/${aws:username}",
+                "arn:aws:iam::*:user/${aws:username}"
+            ],
+            "Effect": "Allow",
+            "Sid": "AllowIndividualUserToDeactivateOnlyTheirOwnMFAOnlyWhenUsingMFA"
+        },
+        {
+            "Condition": {
+                "BoolIfExists": {
+                    "aws:MultiFactorAuthPresent": "false"
+                }
+            },
+            "Resource": "*",
+            "Effect": "Deny",
+            "NotAction": [
+                "iam:CreateVirtualMFADevice",
+                "iam:DeleteVirtualMFADevice",
+                "iam:ChangePassword",
+                "iam:ListVirtualMFADevices",
+                "iam:EnableMFADevice",
+                "iam:ResyncMFADevice",
+                "iam:ListMFADevices",
+                "iam:ListUsers",
+                "iam:ListAccessKeys",
+                "iam:GetAccountSummary",
+                "sts:GetSessionToken",
+                "iam:GetUser"
+            ],
+            "Sid": "BlockMostAccessUnlessSignedInWithMFA"
+        }
+    ]
+}

@@ -1,0 +1,90 @@
+https://is.docs.wso2.com/en/6.0.0/references/architecture/architecture/
+IAM that can interoperate with Google Cloud and SalesForce
+What are the software products that have implemented the XACML language?
+
+There are several software products that have implemented the XACML language, including:
+
+WSO2 Identity Server: WSO2 Identity Server is an open-source Identity and Access Management (IAM) solution that supports XACML-based policy management.
+
+Axiomatics Policy Server: Axiomatics Policy Server is a commercial policy management tool that supports XACML 3.0 and can integrate with a variety of different systems.
+
+IBM Security Access Manager: IBM Security Access Manager is an IAM solution that supports XACML-based access control and policy management.
+
+Oracle Access Manager: Oracle Access Manager is an IAM solution that supports XACML-based policy management.
+
+Auth0 Authorization Extension: Auth0 is a popular identity and access management solution that offers an Authorization Extension that supports XACML-based policy management.
+
+Red Hat Single Sign-On: Red Hat Single Sign-On is an open-source IAM solution that supports XACML-based access control.
+
+Example XACML
+<?xml version="1.0" encoding="UTF-8"?>
+<Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="medical-records-policy" Version="1.0" RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:deny-overrides">
+    <Target>
+        <AnyOf>
+            <AllOf>
+                <Match MatchId="urn:oasis:names:tc:xacml:1.0:function:string-equal">
+                    <AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">medical_records_application</AttributeValue>
+                    <AttributeDesignator AttributeId="urn:oasis:names:tc:xacml:1.0:resource:resource-id" DataType="http://www.w3.org/2001/XMLSchema#string" MustBePresent="true"/>
+                </Match>
+            </AllOf>
+        </AnyOf>
+    </Target>
+    <Rule RuleId="view-medical-records" Effect="Permit">
+        <Target>
+            <AnyOf>
+                <AllOf>
+                    <Match MatchId="urn:oasis:names:tc:xacml:1.0:function:string-equal">
+                        <AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">view</AttributeValue>
+                        <AttributeDesignator AttributeId="urn:oasis:names:tc:xacml:1.0:action:action-id" DataType="http://www.w3.org/2001/XMLSchema#string" MustBePresent="true"/>
+                    </Match>
+                </AllOf>
+            </AnyOf>
+        </Target>
+        <Condition>
+            <Apply FunctionId="urn:oasis:names:tc:xacml:1.0:function:or">
+                <Apply FunctionId="urn:oasis:names:tc:xacml:1.0:function:string-equal">
+                    <AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">nurse</AttributeValue>
+                    <AttributeDesignator AttributeId="user-role" DataType="http://www.w3.org/2001/XMLSchema#string" Category="urn:oasis:names:tc:xacml:1.0:subject-category:access-subject" MustBePresent="false"/>
+                </Apply>
+                <Apply FunctionId="urn:oasis:names:tc:xacml:1.0:function:string-equal">
+                    <AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">doctor</AttributeValue>
+                    <AttributeDesignator AttributeId="user-role" DataType="http://www.w3.org/2001/XMLSchema#string" Category="urn:oasis:names:tc:xacml:1.0:subject-category:access-subject" MustBePresent="false"/>
+                </Apply>
+            </Apply>
+        </Condition>
+    </Rule>
+    <Rule RuleId="edit-medical-records" Effect="Permit">
+        <Target>
+            <AnyOf>
+                <AllOf>
+                    <Match MatchId="urn:oasis:names:tc:xacml:1.0:function:string-equal">
+                        <AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">edit</AttributeValue>
+                        <AttributeDesignator AttributeId="urn:oasis:names:tc:xacml:1.0:action:action-id" DataType="http://www.w3.org/2001/XMLSchema#string
+
+Salesforce access policy:
+<AccessControlPolicy xmlns="urn:salesforce:accesscontrol">
+  <Permission>
+    <Service>
+      <Object>*</Object>
+      <Operation>*</Operation>
+    </Service>
+    <Allow>
+      <Principal>
+        <User>alice@example.com</User>
+      </Principal>
+      <Conditions>
+        <IpAddress>192.168.1.1/24</IpAddress>
+        <Device>Fred's laptop</Device>
+      </Conditions>
+    </Allow>
+    <Deny>
+      <Principal>
+        <Group>HR</Group>
+      </Principal>
+      <Conditions>
+        <TimeOfDay>after 5:00 pm</TimeOfDay>
+      </Conditions>
+    </Deny>
+  </Permission>
+</AccessControlPolicy>
+

@@ -1,0 +1,233 @@
+{
+    "id": "/providers/Microsoft.Authorization/roleDefinitions/92aaf0da-9dab-42b6-94a3-d43ce8d16293",
+    "properties": {
+        "roleName": "Log Analytics Contributor",
+        "description": "Log Analytics Contributor can read all monitoring data and edit monitoring settings. Editing monitoring settings includes adding the VM extension to VMs; reading storage account keys to be able to configure collection of logs from Azure Storage; adding solutions; and configuring Azure diagnostics on all Azure resources.",
+        "assignableScopes": [
+            "/"
+        ],
+        "permissions": [
+            {
+                "actions": [
+                    "*/read",
+                    "Microsoft.ClassicCompute/virtualMachines/extensions/*",
+                    "Microsoft.ClassicStorage/storageAccounts/listKeys/action",
+                    "Microsoft.Compute/virtualMachines/extensions/*",
+                    "Microsoft.HybridCompute/machines/extensions/write",
+                    "Microsoft.Insights/alertRules/*",
+                    "Microsoft.Insights/diagnosticSettings/*",
+                    "Microsoft.OperationalInsights/*",
+                    "Microsoft.OperationsManagement/*",
+                    "Microsoft.Resources/deployments/*",
+                    "Microsoft.Resources/subscriptions/resourcegroups/deployments/*",
+                    "Microsoft.Storage/storageAccounts/listKeys/action",
+                    "Microsoft.Support/*"
+                ],
+                "notActions": [],
+                "dataActions": [],
+                "notDataActions": []
+            }
+        ]
+    }
+}
+{
+    "id": "/providers/Microsoft.Authorization/roleDefinitions/641177b8-a67a-45b9-a033-47bc880bb21e",
+    "properties": {
+        "roleName": "Managed Application Contributor Role",
+        "description": "Allows for creating managed application resources.",
+        "assignableScopes": [
+            "/"
+        ],
+        "permissions": [
+            {
+                "actions": [
+                    "*/read",
+                    "Microsoft.Solutions/applications/*",
+                    "Microsoft.Solutions/register/action",
+                    "Microsoft.Resources/subscriptions/resourceGroups/*",
+                    "Microsoft.Resources/deployments/*"
+                ],
+                "notActions": [],
+                "dataActions": [],
+                "notDataActions": []
+            }
+        ]
+    }
+}
+
+# from ChatGPT
+{
+  "Name": "Web App Contributor",
+  "IsCustom": true,
+  "Description": "Allows users to manage and deploy web apps",
+  "Actions": [
+    "Microsoft.Web/sites/*",
+    "Microsoft.Web/serverFarms/*",
+    "Microsoft.Web/certificates/*",
+    "Microsoft.Web/sites/slots/*",
+    "Microsoft.Web/sites/config/*",
+    "Microsoft.Insights/components/*",
+    "Microsoft.Resources/deployments/*",
+    "Microsoft.Resources/subscriptions/resourceGroups/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/resources/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/resources/write",
+    "Microsoft.Authorization/*/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/{subscriptionId}",
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}",
+    "/subscriptions/{subscriptionId}/providers/Microsoft.Web/sites/{siteName}"
+  ]
+}
+
+{
+  "Name": "Virtual Machine Contributor",
+  "Description": "Allows users to create and manage virtual machines",
+  "Id": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
+  "IsCustom": false,
+  "Actions": [
+    "Microsoft.Compute/virtualMachines/*",
+    "Microsoft.Compute/virtualMachines/read",
+    "Microsoft.Compute/virtualMachines/write",
+    "Microsoft.Compute/virtualMachines/delete"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/{subscriptionId}",
+    "/resourceGroups/{resourceGroupName}"
+  ]
+}
+
+https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#classic-virtual-machine-contributor
+{
+  "assignableScopes": [
+    "/"
+  ],
+  "description": "Lets you manage classic virtual machines, but not access to them, and not the virtual network or storage account they're connected to.",
+  "id": "/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/d73bb868-a0df-4d4d-bd69-98a00b01fccb",
+  "name": "d73bb868-a0df-4d4d-bd69-98a00b01fccb",
+  "permissions": [
+    {
+      "actions": [
+        "Microsoft.Authorization/*/read",
+        "Microsoft.ClassicCompute/domainNames/*",
+        "Microsoft.ClassicCompute/virtualMachines/*",
+        "Microsoft.ClassicNetwork/networkSecurityGroups/join/action",
+        "Microsoft.ClassicNetwork/reservedIps/link/action",
+        "Microsoft.ClassicNetwork/reservedIps/read",
+        "Microsoft.ClassicNetwork/virtualNetworks/join/action",
+        "Microsoft.ClassicNetwork/virtualNetworks/read",
+        "Microsoft.ClassicStorage/storageAccounts/disks/read",
+        "Microsoft.ClassicStorage/storageAccounts/images/read",
+        "Microsoft.ClassicStorage/storageAccounts/listKeys/action",
+        "Microsoft.ClassicStorage/storageAccounts/read",
+        "Microsoft.Insights/alertRules/*",
+        "Microsoft.ResourceHealth/availabilityStatuses/read",
+        "Microsoft.Resources/deployments/*",
+        "Microsoft.Resources/subscriptions/resourceGroups/read",
+        "Microsoft.Support/*"
+      ],
+      "notActions": [],
+      "dataActions": [],
+      "notDataActions": []
+    }
+  ],
+  "roleName": "Classic Virtual Machine Contributor",
+  "roleType": "BuiltInRole",
+  "type": "Microsoft.Authorization/roleDefinitions"
+}
+
+Azure compliance policy:
+
+{
+  "mode": "Indexed",
+  "displayName": "Enforce VM Encryption",
+  "description": "This policy ensures that all Azure virtual machines have encryption enabled.",
+  "policyRule": {
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachines"
+        },
+        {
+          "not": {
+            "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled",
+            "equals": true
+          }
+        }
+      ]
+    },
+    "then": {
+      "effect": "audit",
+      "details": {
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "Virtual Machines without encryption enabled",
+        "message": "Encryption is not enabled for virtual machine {field('name')}.",
+        "severity": "Critical"
+      }
+    }
+  },
+  "parameters": {}
+}
+
+{
+    "name": "lockname",
+    "type": "Microsoft.Authorization/locks",
+    "apiVersion": "2016-09-01",
+    "properties": {
+        "level": "CanNotDelete",
+        "notes": "This lock prevents accidental deletion of the resource group."
+    }
+}
+
+Google:
+Lock
+https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/lock-resources?tabs=json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/locks",
+      "apiVersion": "2016-09-01",
+      "name": "rgLock",
+      "properties": {
+        "level": "CanNotDelete",
+        "notes": "Resource group should not be deleted."
+      }
+    }
+  ]
+}
+
+https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
+{
+  "assignableScopes": [
+    "/"
+  ],
+  "description": "Allow read, write and delete access to Azure Spring Cloud Service Registry",
+  "id": "/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/f5880b48-c26d-48be-b172-7927bfa1c8f1",
+  "name": "f5880b48-c26d-48be-b172-7927bfa1c8f1",
+  "permissions": [
+    {
+      "actions": [],
+      "notActions": [],
+      "dataActions": [
+        "Microsoft.AppPlatform/Spring/eurekaService/read",
+        "Microsoft.AppPlatform/Spring/eurekaService/write",
+        "Microsoft.AppPlatform/Spring/eurekaService/delete"
+      ],
+      "notDataActions": []
+    }
+  ],
+  "roleName": "Azure Spring Cloud Service Registry Contributor",
+  "roleType": "BuiltInRole",
+  "type": "Microsoft.Authorization/roleDefinitions"
+}
