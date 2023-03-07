@@ -7,7 +7,7 @@ This project will serve as proof of concept for the patent pending technology - 
 - the hierachy of set operations is morphed differently.
 The patent pending technology is to morph the access policies in AWS format to the neutral format before morphing them to the Azure format.
 
-# Directory structure
-/db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
-/lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
-/src contains Python code to convert/reduce policies to the neutral format. But the conditions are difficult to convert to a standard/neutral format.
+## Directory structure
+- /db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
+- /lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
+- /src contains Python code to convert/reduce policies to the neutral format. But the conditions are difficult to convert to a standard/neutral format.
