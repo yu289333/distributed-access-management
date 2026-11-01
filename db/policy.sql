@@ -11,5 +11,5 @@ create table policy (
     operator setOperator not null default 'AND',
     condition_raw text,
     condition_cel text,
-    condition_json jsonb[]
+    condition_json jsonb
 );
