@@ -4,8 +4,12 @@ create table policy (
     id  serial primary key,
     parent integer default null references policy(id),
     name text,
-    domain text,
-    cloud text,
-    operator setOperator not null default 'OR',
-    conditions jsonb[]
+    display_name text,
+    comment text,
+    provider text,
+    provider_detail text,
+    operator setOperator not null default 'AND',
+    condition_raw text,
+    condition_cel text,
+    condition_json jsonb[]
 );
