@@ -1,0 +1,31 @@
+{
+  "mode": "Indexed",
+  "displayName": "Enforce VM Encryption",
+  "description": "This policy ensures that all Azure virtual machines have encryption enabled.",
+  "policyRule": {
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachines"
+        },
+        {
+          "not": {
+            "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled",
+            "equals": true
+          }
+        }
+      ]
+    },
+    "then": {
+      "effect": "audit",
+      "details": {
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "Virtual Machines without encryption enabled",
+        "message": "Encryption is not enabled for virtual machine {field('name')}.",
+        "severity": "Critical"
+      }
+    }
+  },
+  "parameters": {}
+}
