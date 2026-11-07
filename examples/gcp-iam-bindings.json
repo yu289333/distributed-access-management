@@ -1,0 +1,24 @@
+{
+  "version": 3,
+  "etag": "BwYExampleEtag",
+  "bindings": [
+    {
+      "role": "roles/storage.objectViewer",
+      "members": [
+        "user:alice@example.com",
+        "group:analysts@example.com"
+      ],
+      "condition": {
+        "title": "production objects only",
+        "description": "Restrict reads to the production prefix",
+        "expression": "resource.name.startsWith(\"projects/_/buckets/prod-data/objects/\")"
+      }
+    },
+    {
+      "role": "roles/storage.admin",
+      "members": [
+        "serviceAccount:backup@example.iam.gserviceaccount.com"
+      ]
+    }
+  ]
+}

@@ -10,7 +10,7 @@ The patent pending technology is to morph the access policies in AWS format to t
 ## Directory structure
 - /db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
 - /lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
-- /src contains AWS/Azure parsers and a shared PostgreSQL policy-tree writer.
+- /src contains AWS, Azure, and GCP parsers and a shared PostgreSQL policy-tree writer.
 - /examples contains standalone JSON policies for use with the parsers.
 - /tests contains parser, tree-validation, and persistence regression tests.
 
@@ -22,9 +22,10 @@ The parsers and database writer are separate:
 | --- | --- | --- |
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
-| `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist either provider's tree. |
+| `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
+| `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist any provider's tree. |
 
-Both parsers accept a JSON string or Python dictionary and return an independent
+The parsers accept a JSON string or Python dictionary and return an independent
 dictionary tree. Every node contains the columns `name`, `display_name`,
 `comment`, `provider`, `provider_detail`, `operator`, `condition_raw`,
 `condition_cel`, and `condition_json`, plus a `children` list. The writer generates
@@ -84,6 +85,24 @@ applicability, not access grants. The complete then/effect/details, parameters,
 and other definition fields remain in the root source; effects are not executed.
 Locks, ARM deployment templates, initiatives, and assignments are not parsed.
 
+### GCP parsing
+
+GCP trees have `provider = 'GCP'` and
+`provider_detail = 'iam.googleapis.com'`; set `provider_detail` to record a
+different IAM API namespace. The parser accepts a policy object as returned by
+`getIamPolicy`, optionally wrapped in a `policy` field, with a nonempty
+`bindings` array.
+
+Bindings are unioned. Each binding is an AND of one `role` leaf, an OR of its
+`members` leaves, and, when present, one `IAM condition` leaf. Each binding's
+original JSON is preserved in its `condition_raw`; the root's `condition_raw`
+preserves the full input, including `version`, `etag`, and `auditConfigs`.
+
+IAM Conditions are kept as native JSON: the CEL `expression` text is stored
+unchanged and is not parsed, translated, or written to `condition_cel`, which
+remains NULL. Deny policies, principal access boundary policies, and the
+contents of `auditConfigs` are not parsed.
+
 ### Usage
 
 Install the database dependency and create the schema in a new PostgreSQL database:
@@ -99,12 +118,14 @@ Preview a tree without connecting to a database:
 python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run
 python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run
 python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run
 ```
 
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
 PGPORT, PGDATABASE, PGUSER, and PGPASSWORD environment variables for the connection.
 `--name` overrides the policy name. Both `python src/awsPolicyEntry.py ...` and
-`python -m src.awsPolicyEntry ...` are supported, likewise for Azure.
+`python -m src.awsPolicyEntry ...` are supported, likewise for the Azure and GCP
+entry modules.
 
 For programmatic use from the project root:
 
@@ -123,9 +144,10 @@ finally:
     connection.close()
 ```
 
-Use `azurePolicyEntry.parse_policy` with the same writer for Azure. The parsers
-and dry runs work without psycopg2 installed. Module imports have no printing,
-network, or database side effects.
+Use `azurePolicyEntry.parse_policy` or `gcpPolicyEntry.parse_policy` with the
+same writer for the other providers. The parsers and dry runs work without
+psycopg2 installed. Module imports have no printing, network, or database side
+effects.
 
 `write_policy_tree` uses one transaction and returns the root row ID. It rolls
 back the whole tree on an insertion failure. Use a dedicated connection with
