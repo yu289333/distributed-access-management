@@ -1,0 +1,33 @@
+// annotation to convert azure-audit-vm.json to policy.sql
+{
+  parent_id = NULL,
+  id = 1,
+  name = "\"mode\": \"Indexed\" \"policyRule\"",
+  provider = "Azure",
+  operator = "AND",
+  condition_raw = "\"mode\": \"Indexed\" ...",
+  displayName= "Enforce VM Encryption",
+  comment = "\"description\": \"This policy ensures that all Azure virtual machines have encryption enabled.\"",
+  {
+    parent_id = 1,
+    id = 11,
+    operator = "AND",
+      {parent_id = 11, id = 111, condition_raw = '"field": "type", "equals": "Microsoft.Compute/virtualMachines"' }
+      {parent_id = 11, id = 112, operator ="NOT", {parent_id = 112, id = 1121, condition_raw = '"field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled", "equals": true}}
+  }
+  {
+    parent_id = 1,
+    id = 12,
+    operator = "AND",
+     {parent_id = 12, id = 121, operator = "AND",
+        {parent_id = 121, id = 1211, condition_raw = '"effect": "audit"',}
+        {parent_id = 121, id = 1212, operator = "AND", name="details",
+          {parent_id = 1212, id = 12121, condition_raw = '"type": "Microsoft.Compute/virtualMachines"',}
+          {parent_id = 1212, id = 12122, condition_raw = '"name": "Virtual Machines without encryption enabled"',}
+          {parent_id = 1212, id = 12123, condition_raw = '"message": "Encryption is not enabled for virtual machine {field('name')}."',}
+          {parent_id = 1212, id = 12124, condition_raw = '"severity": "Critical"'}
+        }
+     }
+  },
+//  "parameters": {}
+}
