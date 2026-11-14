@@ -1,0 +1,43 @@
+{
+  display_name = "Version": "2012-10-17",
+  parent_id = NULL,
+  id = 1,
+  name = "Statement",
+  provider = "AWS",
+  operator = "OR",
+  condition_raw = "{  "Version": "2012-10-17", ...",
+  [
+    {
+    parent_id = 1,
+    id = 11,
+    operator = "AND",
+      {parent_id = 11, id = 111, condition_json = '"Effect": "Allow"',}
+      {parent_id = 11, id = 112, condition_json = '"Action": "ec2:Describe*"',}
+      {parent_id = 11, id = 113, condition_json = '"Resource": "*"'}
+    },
+    {
+    parent_id = 1,
+    id = 12,
+    operator = "AND",
+      {parent_id = 12, id = 121, condition_json = '"Effect": "Allow"',}
+      {parent_id = 12, id = 122, condition_json = '"Action": "elasticloadbalancing:Describe*"',}
+      {parent_id = 12, id = 123, condition_json = '"Resource": "*"'}
+    },
+    {
+    parent_id = 1,
+    id = 13,
+    operator = "AND",
+      {parent_id = 13, id = 131, condition_json = '"Effect": "Allow"',}
+      {parent_id = 13, id = 132, condition_json = '"Action": ["cloudwatch:ListMetrics", "cloudwatch:GetMetricStatistics", "cloudwatch:Describe*"]',}
+      {parent_id = 13, id = 133, condition_json = '"Resource": "*"'}
+    },
+    {
+    parent_id = 1,
+    id = 14,
+    operator = "AND",
+      {parent_id = 14, id = 141, condition_json = '"Effect": "Allow"',}
+      {parent_id = 14, id = 142, condition_json = '"Action": "autoscaling:Describe*"',}
+      {parent_id = 14, id = 143, condition_json = '"Resource": "*"'}
+    }
+  ]
+}
