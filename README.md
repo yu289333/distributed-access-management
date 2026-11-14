@@ -21,6 +21,7 @@ The parsers and database writer are separate:
 | Module | Public API | Purpose |
 | --- | --- | --- |
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
+| `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist either provider's tree. |
 
@@ -59,6 +60,23 @@ denies use `OR(allows)`. A deny-only policy grants nothing. Statement matching
 requires AWS-aware interpretation of the JSON; Effect and Sid are metadata,
 not ordinary matching predicates. This is a representation of one policy's
 grants, not an effective-permissions evaluator across AWS policies or SCPs.
+
+### AWS emitting
+
+`awsPolicyEmitter.emit_policy(tree)` (also exported as `emit_aws`) rebuilds an
+AWS IAM policy document from a tree produced by `awsPolicyEntry.parse_policy`,
+or from the same tree read back from the database. It is the outbound half of
+the AWS morph; it does not turn Azure or GCP trees into AWS policies.
+
+Statements are emitted verbatim from each leaf's `condition_json`, so this
+round trip needs no `condition_cel` translation and never sets that column.
+Every node must have `provider = 'AWS'`, and the tree must have the shape the
+AWS parser produces; other shapes are rejected. `Document`, `PolicyDocument`,
+and `PolicyVersion.Document` wrappers are normalised to a top-level policy,
+and outer fields such as `Version` and `Id` are recovered from the root's
+`condition_raw`. Statement order is restored by exact content, then by `Sid`, so
+statements edited in the tree keep their original slot. Without `condition_raw`
+the tree order is used (allows before explicit denies).
 
 ### Azure parsing
 
@@ -101,6 +119,13 @@ python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run
 python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run
 ```
 
+Rebuild an AWS policy from a tree saved by `--dry-run`:
+
+```sh
+python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > tree.json
+python src/awsPolicyEmitter.py tree.json
+```
+
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
 PGPORT, PGDATABASE, PGUSER, and PGPASSWORD environment variables for the connection.
 `--name` overrides the policy name. Both `python src/awsPolicyEntry.py ...` and
@@ -123,9 +148,10 @@ finally:
     connection.close()
 ```
 
-Use `azurePolicyEntry.parse_policy` with the same writer for Azure. The parsers
-and dry runs work without psycopg2 installed. Module imports have no printing,
-network, or database side effects.
+Use `azurePolicyEntry.parse_policy` with the same writer for Azure. The AWS
+emitter is pure Python and needs no database. The parsers, the emitter, and dry
+runs work without psycopg2 installed. Module imports have no printing, network,
+or database side effects.
 
 `write_policy_tree` uses one transaction and returns the root row ID. It rolls
 back the whole tree on an insertion failure. Use a dedicated connection with
