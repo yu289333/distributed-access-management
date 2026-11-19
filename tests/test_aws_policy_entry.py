@@ -24,6 +24,23 @@ class AwsParserTests(unittest.TestCase):
                 self.assertEqual(source, original)
                 self.assertTrue(all(node['provider'] == 'AWS' for node in walk(tree)))
 
+    def test_deny_example_uses_the_exclusion_shape(self):
+        tree = parse_policy((ROOT / 'examples/aws-mfa-mandated-policy.json').read_text())
+        self.assertEqual(tree['operator'], 'AND')
+        allowed, excluded = tree['children']
+        self.assertEqual(allowed['operator'], 'OR')
+        self.assertEqual(excluded['operator'], 'NOT')
+        self.assertEqual(excluded['children'][0]['operator'], 'OR')
+        statements = [node['condition_json'] for node in walk(tree)
+                      if node['condition_json'] is not None]
+        self.assertTrue(any('Condition' in statement for statement in statements))
+
+    def test_api_wrapper_example_keeps_the_original_source(self):
+        source = (ROOT / 'examples/aws-ec2-full-access-api.json').read_text()
+        tree = parse_policy(source)
+        self.assertEqual(tree['condition_raw'], source)
+        self.assertEqual(len(tree['children']), 4)
+
     def test_explicit_deny_overrides_allow(self):
         tree = parse_policy({'Statement': [
             {'Sid': 'allow', 'Effect': 'Allow', 'Action': '*', 'Resource': '*'},

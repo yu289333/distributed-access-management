@@ -48,7 +48,9 @@ class AwsEmitterTests(unittest.TestCase):
         for path in (ROOT / 'examples').glob('aws-*.json'):
             with self.subTest(path=path.name):
                 source = json.loads(path.read_text())
-                self.assertEqual(emit_policy(parse_policy(source)), source)
+                # API response wrappers are normalised to the inner policy document.
+                expected = source['Document'] if 'Document' in source else source
+                self.assertEqual(emit_policy(parse_policy(source)), expected)
 
     def test_order_and_deny_semantics_survive_a_round_trip(self):
         source = {'Version': '2012-10-17', 'Id': 'mixed', 'Statement': [

@@ -34,6 +34,13 @@ class AzureParserTests(unittest.TestCase):
             supported += 1
         self.assertGreaterEqual(supported, 9)
 
+    def test_powershell_example_uses_the_single_block_shape(self):
+        tree = parse_policy((ROOT / 'examples/azure-powershell-web-app.json').read_text())
+        self.assertEqual(tree['display_name'], 'Web App Contributor')
+        self.assertEqual(tree['provider_detail'],
+                         'Microsoft.Authorization/roleDefinitions')
+        self.assertTrue(evaluate(tree, action_matches('actions', 'Microsoft.Web/sites/*')))
+
     def test_control_and_data_planes_are_separate(self):
         tree = parse_policy({'permissions': [{
             'actions': ['read', 'write'], 'notActions': ['write'],
