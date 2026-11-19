@@ -89,6 +89,63 @@ def validate_tree(tree):
     visit(tree)
 
 
+def _has_expression(node):
+    return node.get('condition_json') is not None or node.get('condition_cel') is not None
+
+
+def canonicalize(tree):
+    """Return a meaning-preserving reduced copy of a validated policy tree.
+
+    Only structural nodes are rewritten: a grouping node carries no expression,
+    so replacing it with its children cannot change which leaf predicates are
+    evaluated. The rules are bottom-up and idempotent:
+
+    * a structural child with the same operator as its parent is spliced in,
+    * ``NOT(NOT x)`` becomes ``x``,
+    * an empty AND inside an AND is dropped (true is neutral),
+    * an empty OR inside an OR is dropped (false is neutral),
+    * a non-root structural node with exactly one child is replaced by it.
+
+    Leaf expressions are never modified, so the set of predicates is preserved.
+    Labels and per-node ``condition_raw`` text of eliminated nodes are dropped;
+    the root keeps its own ``condition_raw``. Use this for a canonical form to
+    compare or store, not as a substitute for the lossless tree.
+    """
+    validate_tree(tree)
+    return _canonical(deepcopy(tree), is_root=True)
+
+
+def _canonical(node, *, is_root):
+    node['children'] = [_canonical(child, is_root=False)
+                        for child in node.get('children', [])]
+    if _has_expression(node):
+        return node
+    kept = []
+    for child in node['children']:
+        if (not _has_expression(child) and not child['children'] and
+                child['operator'] == node['operator'] and
+                node['operator'] in ('AND', 'OR')):
+            continue
+        kept.append(child)
+    spliced = []
+    for child in kept:
+        # NOT is not associative: NOT(NOT x) is x, not NOT(x's children).
+        if (not _has_expression(child) and child['operator'] == node['operator'] and
+                node['operator'] != 'NOT'):
+            spliced.extend(child['children'])
+        else:
+            spliced.append(child)
+    node['children'] = spliced
+    if node['operator'] == 'NOT' and len(node['children']) == 1:
+        child = node['children'][0]
+        if not _has_expression(child) and child['operator'] == 'NOT':
+            node = child['children'][0]
+    if (not is_root and not _has_expression(node) and
+            node['operator'] != 'NOT' and len(node['children']) == 1):
+        node = node['children'][0]
+    return node
+
+
 def insert_policy_tree(cursor, tree, *, table='policy', schema=None, parent_id=None):
     """Insert without committing. The caller owns the transaction; return root ID."""
     validate_tree(tree)
@@ -113,6 +170,53 @@ def insert_policy_tree(cursor, tree, *, table='policy', schema=None, parent_id=N
         return node_id
 
     return insert(tree, parent_id)
+
+
+def load_policy_tree(cursor, root_id, *, table='policy', schema=None):
+    """Read one policy tree back from the database; return a fresh tree dict.
+
+    Rows are fetched with one recursive query and reassembled by ``parent``.
+    The result is validated, so a truncated or cyclic subtree raises instead of
+    returning a partial tree. The caller owns the transaction and the cursor.
+    """
+    from psycopg2 import sql
+
+    identifier = sql.Identifier(schema, table) if schema else sql.Identifier(table)
+    columns = sql.SQL(', ').join(sql.Identifier(column) for column in COLUMNS)
+    query = sql.SQL('''
+        WITH RECURSIVE subtree AS (
+            SELECT id, parent, {columns} FROM {table} WHERE id = %s
+            UNION ALL
+            SELECT child.id, child.parent, {columns} FROM {table} AS child
+            JOIN subtree AS parent ON child.parent = parent.id
+        )
+        SELECT id, parent, {columns} FROM subtree ORDER BY id
+    ''').format(columns=columns, table=identifier)
+    cursor.execute(query, (root_id,))
+    rows = cursor.fetchall()
+
+    nodes, children = {}, {}
+    for row in rows:
+        node_id, parent_id = row[0], row[1]
+        node = dict(zip(COLUMNS, row[2:]))
+        node['children'] = []
+        nodes[node_id] = node
+        children.setdefault(parent_id, []).append(node_id)
+    if root_id not in nodes:
+        raise ValueError(f'No policy row with id {root_id}')
+
+    def build(node_id, seen):
+        if node_id in seen:
+            raise ValueError('Policy rows contain a parent cycle')
+        seen.add(node_id)
+        node = nodes[node_id]
+        node['children'] = [build(child, seen)
+                            for child in children.get(node_id, [])]
+        return node
+
+    tree = build(root_id, set())
+    validate_tree(tree)
+    return tree
 
 
 def write_policy_tree(connection, tree, *, table='policy', schema=None):

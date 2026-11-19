@@ -23,7 +23,7 @@ The parsers and database writer are separate:
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
-| `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist any provider's tree. |
+| `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
 The parsers accept a JSON string or Python dictionary and return an independent
 dictionary tree. Every node contains the columns `name`, `display_name`,
@@ -156,6 +156,25 @@ transaction. `insert_policy_tree(cursor, tree)` leaves transaction ownership to
 the caller. Both accept optional `table` and `schema` arguments, quoted as SQL
 identifiers. Each call inserts a new tree; no schema migration or deduplication
 is performed.
+
+`load_policy_tree(cursor, root_id)` reverses the write: one recursive query
+fetches the subtree and the rows are reassembled by `parent`. The result is
+validated, so a truncated or cyclic subtree raises instead of returning a
+partial tree. The caller owns the cursor and the transaction.
+
+`canonicalize(tree)` returns a reduced copy of a validated tree without changing
+its meaning. It splices grouping children that repeat their parent's operator,
+removes `NOT(NOT x)` and neutral empty groups, and collapses single-child
+grouping nodes. Leaf expressions are never touched, so any truth assignment to
+the leaves evaluates the same before and after. Labels and per-node
+`condition_raw` text of eliminated nodes are dropped; the root keeps its own
+`condition_raw`, so an AWS tree still emits. Use the canonical form for
+comparison or for the "Optimized" node-count claim, not as a replacement for the
+lossless tree.
+
+The two hand-drawn row layouts under `examples/sketches/` are documentation, not
+parsed input: they use unquoted keys and nested blocks without keys, so they are
+not JSON.
 
 Run the regression tests:
 
