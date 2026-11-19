@@ -3,8 +3,10 @@
 import json
 
 if __package__:
+    from .conditionCel import populate_condition_cel
     from .policyTree import load_document, make_node, run_cli, validate_tree
 else:
+    from conditionCel import populate_condition_cel
     from policyTree import load_document, make_node, run_cli, validate_tree
 
 
@@ -65,11 +67,16 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
     allows, denies = [], []
     for index, statement in enumerate(statements, 1):
         _check_statement(statement, index)
-        leaf = node(statement.get('Sid') or f'Statement {index}',
-                    condition_json=statement, condition_raw=json.dumps(statement))
-        (allows if statement['Effect'] == 'Allow' else denies).append(leaf)
+        group = node(statement.get('Sid') or f'Statement {index}', children=[
+            node(key, condition_json={key: value},
+                 condition_raw=json.dumps({key: value}))
+            for key, value in statement.items() if key != 'Sid'
+        ], condition_raw=json.dumps(statement))
+        if 'Sid' in statement:
+            group['display_name'] = '"Sid": ' + json.dumps(statement['Sid'])
+        (allows if statement['Effect'] == 'Allow' else denies).append(group)
 
-    policy_name = name or original.get('PolicyName') or original.get('Arn') or document.get('Id') or 'AWS policy'
+    policy_name = name or original.get('PolicyName') or original.get('Arn') or document.get('Id') or 'Statement'
     root = node(policy_name, 'OR', children=allows,
                 condition_raw=source if isinstance(source, str) else json.dumps(original))
     if denies:
@@ -77,6 +84,9 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
         root['children'] = [node('Allowed statements', 'OR', children=allows),
                             node('Exclude explicit denies', 'NOT', children=[
                                 node('Denied statements', 'OR', children=denies)])]
+    if 'Version' in document:
+        root['display_name'] = '"Version": ' + json.dumps(document['Version'])
+    populate_condition_cel(root)
     validate_tree(root)
     return root
 

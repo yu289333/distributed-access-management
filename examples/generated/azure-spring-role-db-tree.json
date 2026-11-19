@@ -1,0 +1,234 @@
+{
+  "id": 1139,
+  "parent_id": null,
+  "name": "/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/f5880b48-c26d-48be-b172-7927bfa1c8f1",
+  "display_name": "Azure Spring Cloud Service Registry Contributor",
+  "comment": "\"description\": \"Allow read, write and delete access to Azure Spring Cloud Service Registry\"",
+  "provider": "Azure",
+  "provider_detail": "Microsoft.Authorization/roleDefinitions",
+  "operator": "AND",
+  "condition_raw": "{\n  \"assignableScopes\": [\n    \"/\"\n  ],\n  \"description\": \"Allow read, write and delete access to Azure Spring Cloud Service Registry\",\n  \"id\": \"/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/f5880b48-c26d-48be-b172-7927bfa1c8f1\",\n  \"name\": \"f5880b48-c26d-48be-b172-7927bfa1c8f1\",\n  \"permissions\": [\n    {\n      \"actions\": [],\n      \"notActions\": [],\n      \"dataActions\": [\n        \"Microsoft.AppPlatform/Spring/eurekaService/read\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/write\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/delete\"\n      ],\n      \"notDataActions\": []\n    }\n  ],\n  \"roleName\": \"Azure Spring Cloud Service Registry Contributor\",\n  \"roleType\": \"BuiltInRole\",\n  \"type\": \"Microsoft.Authorization/roleDefinitions\"\n}\n",
+  "condition_cel": null,
+  "condition_json": null,
+  "children": [
+    {
+      "id": 1140,
+      "parent_id": 1139,
+      "name": "permissions",
+      "display_name": null,
+      "comment": null,
+      "provider": "Azure",
+      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+      "operator": "OR",
+      "condition_raw": null,
+      "condition_cel": null,
+      "condition_json": null,
+      "children": [
+        {
+          "id": 1141,
+          "parent_id": 1140,
+          "name": "Permission block 1",
+          "display_name": null,
+          "comment": null,
+          "provider": "Azure",
+          "provider_detail": "Microsoft.Authorization/roleDefinitions",
+          "operator": "OR",
+          "condition_raw": "{\"actions\": [], \"notActions\": [], \"dataActions\": [\"Microsoft.AppPlatform/Spring/eurekaService/read\", \"Microsoft.AppPlatform/Spring/eurekaService/write\", \"Microsoft.AppPlatform/Spring/eurekaService/delete\"], \"notDataActions\": []}",
+          "condition_cel": null,
+          "condition_json": null,
+          "children": [
+            {
+              "id": 1142,
+              "parent_id": 1141,
+              "name": "actions minus notActions",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/roleDefinitions",
+              "operator": "AND",
+              "condition_raw": null,
+              "condition_cel": null,
+              "condition_json": null,
+              "children": [
+                {
+                  "id": 1143,
+                  "parent_id": 1142,
+                  "name": "actions",
+                  "display_name": null,
+                  "comment": null,
+                  "provider": "Azure",
+                  "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                  "operator": "OR",
+                  "condition_raw": null,
+                  "condition_cel": "false",
+                  "condition_json": null,
+                  "children": []
+                },
+                {
+                  "id": 1144,
+                  "parent_id": 1142,
+                  "name": "Exclude notActions",
+                  "display_name": null,
+                  "comment": null,
+                  "provider": "Azure",
+                  "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                  "operator": "NOT",
+                  "condition_raw": null,
+                  "condition_cel": null,
+                  "condition_json": null,
+                  "children": [
+                    {
+                      "id": 1145,
+                      "parent_id": 1144,
+                      "name": "notActions",
+                      "display_name": null,
+                      "comment": null,
+                      "provider": "Azure",
+                      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                      "operator": "OR",
+                      "condition_raw": null,
+                      "condition_cel": "false",
+                      "condition_json": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 1146,
+              "parent_id": 1141,
+              "name": "dataActions minus notDataActions",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/roleDefinitions",
+              "operator": "AND",
+              "condition_raw": null,
+              "condition_cel": null,
+              "condition_json": null,
+              "children": [
+                {
+                  "id": 1147,
+                  "parent_id": 1146,
+                  "name": "dataActions",
+                  "display_name": null,
+                  "comment": null,
+                  "provider": "Azure",
+                  "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                  "operator": "OR",
+                  "condition_raw": null,
+                  "condition_cel": null,
+                  "condition_json": null,
+                  "children": [
+                    {
+                      "id": 1148,
+                      "parent_id": 1147,
+                      "name": "Microsoft.AppPlatform/Spring/eurekaService/read",
+                      "display_name": null,
+                      "comment": null,
+                      "provider": "Azure",
+                      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                      "operator": "AND",
+                      "condition_raw": null,
+                      "condition_cel": "dataActions == [\"Microsoft.AppPlatform/Spring/eurekaService/read\"]",
+                      "condition_json": {
+                        "dataActions": [
+                          "Microsoft.AppPlatform/Spring/eurekaService/read"
+                        ]
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": 1149,
+                      "parent_id": 1147,
+                      "name": "Microsoft.AppPlatform/Spring/eurekaService/write",
+                      "display_name": null,
+                      "comment": null,
+                      "provider": "Azure",
+                      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                      "operator": "AND",
+                      "condition_raw": null,
+                      "condition_cel": "dataActions == [\"Microsoft.AppPlatform/Spring/eurekaService/write\"]",
+                      "condition_json": {
+                        "dataActions": [
+                          "Microsoft.AppPlatform/Spring/eurekaService/write"
+                        ]
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": 1150,
+                      "parent_id": 1147,
+                      "name": "Microsoft.AppPlatform/Spring/eurekaService/delete",
+                      "display_name": null,
+                      "comment": null,
+                      "provider": "Azure",
+                      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                      "operator": "AND",
+                      "condition_raw": null,
+                      "condition_cel": "dataActions == [\"Microsoft.AppPlatform/Spring/eurekaService/delete\"]",
+                      "condition_json": {
+                        "dataActions": [
+                          "Microsoft.AppPlatform/Spring/eurekaService/delete"
+                        ]
+                      },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": 1151,
+                  "parent_id": 1146,
+                  "name": "Exclude notDataActions",
+                  "display_name": null,
+                  "comment": null,
+                  "provider": "Azure",
+                  "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                  "operator": "NOT",
+                  "condition_raw": null,
+                  "condition_cel": null,
+                  "condition_json": null,
+                  "children": [
+                    {
+                      "id": 1152,
+                      "parent_id": 1151,
+                      "name": "notDataActions",
+                      "display_name": null,
+                      "comment": null,
+                      "provider": "Azure",
+                      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+                      "operator": "OR",
+                      "condition_raw": null,
+                      "condition_cel": "false",
+                      "condition_json": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1153,
+      "parent_id": 1139,
+      "name": "assignableScopes",
+      "display_name": null,
+      "comment": null,
+      "provider": "Azure",
+      "provider_detail": "Microsoft.Authorization/roleDefinitions",
+      "operator": "AND",
+      "condition_raw": "{\"assignableScopes\": [\"/\"]}",
+      "condition_cel": "assignableScopes == [\"/\"]",
+      "condition_json": {
+        "assignableScopes": [
+          "/"
+        ]
+      },
+      "children": []
+    }
+  ]
+}

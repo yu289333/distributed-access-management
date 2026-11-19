@@ -9,6 +9,8 @@ from policy_support import ROOT, documents, evaluate, walk
 
 def action_matches(plane, action):
     def match(expression):
+        if 'assignableScopes' in expression:
+            return True  # Scope eligibility is metadata, independent of action matching.
         # Exact matching only: these tests verify set structure, not Azure wildcards.
         return action in expression.get(plane, []) or action in expression.get(
             'notActions' if plane == 'actions' else 'notDataActions', [])
@@ -18,7 +20,7 @@ def action_matches(plane, action):
 class AzureParserTests(unittest.TestCase):
     def test_repository_roles_and_policy_rule(self):
         examples = list(documents('db/azurePolicies.txt'))
-        examples.extend(json.loads(path.read_text()) for path in (ROOT / 'examples').glob('azure-*.json'))
+        examples.extend(json.loads(path.read_text()) for path in (ROOT / 'examples').glob('azure-*.json') if not path.name.endswith('-sql.json'))
         supported = 0
         for source in examples:
             if source.get('type') == 'Microsoft.Authorization/locks' or 'resources' in source:
@@ -78,10 +80,60 @@ class AzureParserTests(unittest.TestCase):
             'parameters': {'location': {'type': 'String'}}}}
         tree = parse_policy(source)
         self.assertEqual(tree['provider_detail'], 'Microsoft.Authorization/policyDefinitions')
-        self.assertIn('audit', tree['comment'])
+        self.assertIn({'effect': 'audit'}, [n['condition_json'] for n in walk(tree)])
         self.assertEqual(json.loads(tree['condition_raw']), source)
         self.assertEqual([node['operator'] for node in walk(tree)].count('NOT'), 1)
         self.assertIsNone(tree['condition_json'])
+
+    def test_audit_example_matches_sql_sketch_with_predicate_cel(self):
+        raw = (ROOT / 'examples/azure-audit-vm.json').read_text()
+        document = json.loads(raw)
+        tree = parse_policy(raw)
+        self.assertEqual(tree['name'], '"mode": "Indexed" "policyRule"')
+        self.assertEqual(tree['display_name'], document['displayName'])
+        self.assertEqual(tree['comment'], '"description": ' + json.dumps(document['description']))
+        self.assertEqual(tree['condition_raw'], raw)
+        self.assertEqual(len(list(walk(tree))), 12)
+        predicates = [n for n in walk(tree) if n['condition_json'] and 'field' in n['condition_json']]
+        self.assertEqual(len(predicates), 2)
+        self.assertTrue(all(n['condition_cel'] is not None for n in predicates))
+        self.assertTrue(all(n['condition_cel'] is not None for n in walk(tree) if n['condition_json'] is not None))
+        self.assertTrue(all(n['condition_cel'] is None for n in walk(tree) if n['children']))
+        applicability, outcome = tree['children']
+        self.assertEqual(applicability['operator'], 'AND')
+        self.assertEqual(applicability['children'][1]['operator'], 'NOT')
+        self.assertEqual(outcome['operator'], 'AND')
+        effect, details = outcome['children']
+        self.assertEqual(effect['condition_cel'], 'effect == "audit"')
+        self.assertEqual(effect['condition_json'], {'effect': 'audit'})
+        self.assertEqual(effect['condition_raw'], '"effect": "audit"')
+        self.assertEqual(details['name'], 'details')
+        self.assertEqual(details['operator'], 'AND')
+        self.assertEqual(details['children'][0]['condition_cel'], 'type == "Microsoft.Compute/virtualMachines"')
+        self.assertEqual(details['children'][-1]['condition_cel'], 'severity == "Critical"')
+        self.assertEqual([n['condition_json'] for n in details['children']],
+                         [{k: v} for k, v in document['policyRule']['then']['details'].items()])
+
+    def test_classic_role_has_scope_expression(self):
+        source = (ROOT / 'examples/azure-classic-vm-role.json').read_text()
+        tree = parse_policy(source)
+        self.assertEqual(tree['operator'], 'AND')
+        permissions, scopes = tree['children']
+        self.assertEqual(permissions['operator'], 'OR')
+        self.assertEqual(scopes['name'], 'assignableScopes')
+        self.assertEqual(scopes['condition_json'], {'assignableScopes': ['/']})
+        self.assertEqual(scopes['condition_cel'], 'assignableScopes == ["/"]')
+        source = json.loads(source)
+        source['assignableScopes'] = ['/', '/abc']
+        scopes = parse_policy(source)['children'][1]
+        self.assertEqual(scopes['children'], [])
+        self.assertEqual(scopes['condition_json'], {'assignableScopes': ['/', '/abc']})
+        self.assertEqual(scopes['condition_cel'], 'assignableScopes == ["/", "/abc"]')
+        source['assignableScopes'] = []
+        self.assertEqual(parse_policy(source)['children'][1]['condition_cel'], 'assignableScopes == []')
+        source['assignableScopes'] = '/'
+        with self.assertRaises(ValueError):
+            parse_policy(source)
 
     def test_malformed_and_unsupported_policies_are_rejected(self):
         for source in [{}, {'permissions': []}, {'permissions': [{}]},
