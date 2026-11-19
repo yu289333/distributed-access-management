@@ -10,7 +10,7 @@ The patent pending technology is to morph the access policies in AWS format to t
 ## Directory structure
 - /db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
 - /lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
-- /src contains AWS/Azure parsers and a shared PostgreSQL policy-tree writer.
+- /src contains AWS, Azure, and GCP parsers and a shared PostgreSQL policy-tree writer.
 - /examples contains standalone JSON policies for use with the parsers.
 - /tests contains parser, tree-validation, and persistence regression tests.
 
@@ -21,11 +21,11 @@ The parsers and database writer are separate:
 | Module | Public API | Purpose |
 | --- | --- | --- |
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
-| `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
-| `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist either provider's tree. |
+| `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
+| `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist any provider's tree. |
 
-Both parsers accept a JSON string or Python dictionary and return an independent
+The parsers accept a JSON string or Python dictionary and return an independent
 dictionary tree. Every node contains the columns `name`, `display_name`,
 `comment`, `provider`, `provider_detail`, `operator`, `condition_raw`,
 `condition_cel`, and `condition_json`, plus a `children` list. The writer generates
@@ -61,23 +61,6 @@ requires AWS-aware interpretation of the JSON; Effect and Sid are metadata,
 not ordinary matching predicates. This is a representation of one policy's
 grants, not an effective-permissions evaluator across AWS policies or SCPs.
 
-### AWS emitting
-
-`awsPolicyEmitter.emit_policy(tree)` (also exported as `emit_aws`) rebuilds an
-AWS IAM policy document from a tree produced by `awsPolicyEntry.parse_policy`,
-or from the same tree read back from the database. It is the outbound half of
-the AWS morph; it does not turn Azure or GCP trees into AWS policies.
-
-Statements are emitted verbatim from each leaf's `condition_json`, so this
-round trip needs no `condition_cel` translation and never sets that column.
-Every node must have `provider = 'AWS'`, and the tree must have the shape the
-AWS parser produces; other shapes are rejected. `Document`, `PolicyDocument`,
-and `PolicyVersion.Document` wrappers are normalised to a top-level policy,
-and outer fields such as `Version` and `Id` are recovered from the root's
-`condition_raw`. Statement order is restored by exact content, then by `Sid`, so
-statements edited in the tree keep their original slot. Without `condition_raw`
-the tree order is used (allows before explicit denies).
-
 ### Azure parsing
 
 Azure trees have `provider = 'Azure'`. The parser recognizes REST role definitions
@@ -102,6 +85,24 @@ applicability, not access grants. The complete then/effect/details, parameters,
 and other definition fields remain in the root source; effects are not executed.
 Locks, ARM deployment templates, initiatives, and assignments are not parsed.
 
+### GCP parsing
+
+GCP trees have `provider = 'GCP'` and
+`provider_detail = 'iam.googleapis.com'`; set `provider_detail` to record a
+different IAM API namespace. The parser accepts a policy object as returned by
+`getIamPolicy`, optionally wrapped in a `policy` field, with a nonempty
+`bindings` array.
+
+Bindings are unioned. Each binding is an AND of one `role` leaf, an OR of its
+`members` leaves, and, when present, one `IAM condition` leaf. Each binding's
+original JSON is preserved in its `condition_raw`; the root's `condition_raw`
+preserves the full input, including `version`, `etag`, and `auditConfigs`.
+
+IAM Conditions are kept as native JSON: the CEL `expression` text is stored
+unchanged and is not parsed, translated, or written to `condition_cel`, which
+remains NULL. Deny policies, principal access boundary policies, and the
+contents of `auditConfigs` are not parsed.
+
 ### Usage
 
 Install the database dependency and create the schema in a new PostgreSQL database:
@@ -117,19 +118,14 @@ Preview a tree without connecting to a database:
 python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run
 python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run
 python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run
-```
-
-Rebuild an AWS policy from a tree saved by `--dry-run`:
-
-```sh
-python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > tree.json
-python src/awsPolicyEmitter.py tree.json
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run
 ```
 
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
 PGPORT, PGDATABASE, PGUSER, and PGPASSWORD environment variables for the connection.
 `--name` overrides the policy name. Both `python src/awsPolicyEntry.py ...` and
-`python -m src.awsPolicyEntry ...` are supported, likewise for Azure.
+`python -m src.awsPolicyEntry ...` are supported, likewise for the Azure and GCP
+entry modules.
 
 For programmatic use from the project root:
 
@@ -148,10 +144,10 @@ finally:
     connection.close()
 ```
 
-Use `azurePolicyEntry.parse_policy` with the same writer for Azure. The AWS
-emitter is pure Python and needs no database. The parsers, the emitter, and dry
-runs work without psycopg2 installed. Module imports have no printing, network,
-or database side effects.
+Use `azurePolicyEntry.parse_policy` or `gcpPolicyEntry.parse_policy` with the
+same writer for the other providers. The AWS emitter is pure Python and needs no
+database. The parsers, the emitter, and dry runs work without psycopg2
+installed. Module imports have no printing, network, or database side effects.
 
 `write_policy_tree` uses one transaction and returns the root row ID. It rolls
 back the whole tree on an insertion failure. Use a dedicated connection with
