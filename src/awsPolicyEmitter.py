@@ -19,12 +19,12 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-if __package__:
-    from .awsPolicyEntry import _check_statement
-    from .policyTree import validate_tree
-else:
-    from awsPolicyEntry import _check_statement
-    from policyTree import validate_tree
+if not __package__:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.awsPolicyEntry import _check_statement
+from src.policyTree import validate_tree
 
 
 def _check_provider(tree):

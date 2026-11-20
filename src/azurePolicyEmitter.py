@@ -17,10 +17,11 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
-if __package__:
-    from .policyTree import validate_tree
-else:
-    from policyTree import validate_tree
+if not __package__:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.policyTree import validate_tree
 
 RBAC_DETAIL = 'Microsoft.Authorization/roleDefinitions'
 POLICY_DETAIL = 'Microsoft.Authorization/policyDefinitions'
