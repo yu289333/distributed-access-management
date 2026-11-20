@@ -20,10 +20,58 @@ class AwsParserTests(unittest.TestCase):
                 statements = [json.loads(node['condition_raw']) for node in walk(tree)
                               if node['children'] and node['condition_raw']
                               and 'Effect' in json.loads(node['condition_raw'])]
-                self.assertCountEqual(statements, source.get('Document', source)['Statement'])
+                expected = source.get('Document', source)['Statement']
+                self.assertCountEqual(statements, expected if isinstance(expected, list) else [expected])
                 self.assertEqual(json.loads(tree['condition_raw']), source)
                 self.assertEqual(source, original)
                 self.assertTrue(all(node['provider'] == 'AWS' for node in walk(tree)))
+
+    def test_example_cel_matches_each_json_field(self):
+        for filename in ('aws-ec2-readonly.json', 'aws-secrets-readonly.json'):
+            tree = parse_policy((ROOT / 'examples' / filename).read_text())
+            for node in walk(tree):
+                expression = node['condition_json']
+                if expression is not None:
+                    self.assertEqual(len(expression), 1)
+                    key, value = next(iter(expression.items()))
+                    self.assertEqual(node['condition_cel'], key + ' == ' + json.dumps(value))
+                elif node['children']:
+                    self.assertIsNone(node['condition_cel'])
+
+    def test_additional_aws_documentation_structures(self):
+        cases = {
+            'aws-s3-deny-except-bucket.json': ('AND', 2),
+            'aws-deny-outside-regions.json': ('AND', 1),
+            'aws-deny-outside-ip-ranges.json': ('AND', 1),
+            'aws-create-user-with-tags.json': ('OR', 1),
+            'aws-ec2-trust-policy.json': ('OR', 1),
+        }
+        for filename, (operator, statement_count) in cases.items():
+            with self.subTest(filename=filename):
+                raw = (ROOT / 'examples' / filename).read_text()
+                source = json.loads(raw)
+                statements = source['Statement']
+                statements = statements if isinstance(statements, list) else [statements]
+                self.assertEqual(len(statements), statement_count)
+                tree = parse_policy(raw)
+                self.assertEqual(tree['operator'], operator)
+                actual = [node['condition_json'] for node in walk(tree)
+                          if node['condition_json'] is not None]
+                expected = [{key: value} for statement in statements
+                            for key, value in statement.items() if key != 'Sid']
+                self.assertCountEqual(actual, expected)
+                self.assertEqual(tree['condition_raw'], raw)
+                for node in walk(tree):
+                    if node['condition_json'] is not None:
+                        key, value = next(iter(node['condition_json'].items()))
+                        self.assertEqual(node['condition_cel'], key + ' == ' + json.dumps(value))
+        trust = parse_policy((ROOT / 'examples/aws-ec2-trust-policy.json').read_text())
+        self.assertFalse(any('Resource' in (n['condition_json'] or {}) for n in walk(trust)))
+        tagged = parse_policy((ROOT / 'examples/aws-create-user-with-tags.json').read_text())
+        condition = next(n['condition_json']['Condition'] for n in walk(tagged)
+                         if n['condition_json'] and 'Condition' in n['condition_json'])
+        self.assertIn('ForAllValues:StringEquals', condition)
+        self.assertIn('StringEqualsIfExists', condition)
 
     def test_explicit_deny_overrides_allow(self):
         tree = parse_policy({'Statement': [

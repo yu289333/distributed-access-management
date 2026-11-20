@@ -10,6 +10,7 @@
   "condition_raw": "{\n  \"assignableScopes\": [\n    \"/\"\n  ],\n  \"description\": \"Allow read, write and delete access to Azure Spring Cloud Service Registry\",\n  \"id\": \"/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/f5880b48-c26d-48be-b172-7927bfa1c8f1\",\n  \"name\": \"f5880b48-c26d-48be-b172-7927bfa1c8f1\",\n  \"permissions\": [\n    {\n      \"actions\": [],\n      \"notActions\": [],\n      \"dataActions\": [\n        \"Microsoft.AppPlatform/Spring/eurekaService/read\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/write\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/delete\"\n      ],\n      \"notDataActions\": []\n    }\n  ],\n  \"roleName\": \"Azure Spring Cloud Service Registry Contributor\",\n  \"roleType\": \"BuiltInRole\",\n  \"type\": \"Microsoft.Authorization/roleDefinitions\"\n}\n",
   "condition_cel": null,
   "condition_json": null,
+  "condition_origin": "json",
   "children": [
     {
       "id": 1140,
@@ -23,6 +24,7 @@
       "condition_raw": null,
       "condition_cel": null,
       "condition_json": null,
+      "condition_origin": null,
       "children": [
         {
           "id": 1141,
@@ -33,9 +35,10 @@
           "provider": "Azure",
           "provider_detail": "Microsoft.Authorization/roleDefinitions",
           "operator": "OR",
-          "condition_raw": "{\"actions\": [], \"notActions\": [], \"dataActions\": [\"Microsoft.AppPlatform/Spring/eurekaService/read\", \"Microsoft.AppPlatform/Spring/eurekaService/write\", \"Microsoft.AppPlatform/Spring/eurekaService/delete\"], \"notDataActions\": []}",
+          "condition_raw": "{\n      \"actions\": [],\n      \"notActions\": [],\n      \"dataActions\": [\n        \"Microsoft.AppPlatform/Spring/eurekaService/read\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/write\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/delete\"\n      ],\n      \"notDataActions\": []\n    }",
           "condition_cel": null,
           "condition_json": null,
+          "condition_origin": "json",
           "children": [
             {
               "id": 1142,
@@ -49,6 +52,7 @@
               "condition_raw": null,
               "condition_cel": null,
               "condition_json": null,
+              "condition_origin": null,
               "children": [
                 {
                   "id": 1143,
@@ -62,6 +66,7 @@
                   "condition_raw": null,
                   "condition_cel": "false",
                   "condition_json": null,
+                  "condition_origin": null,
                   "children": []
                 },
                 {
@@ -76,6 +81,7 @@
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
+                  "condition_origin": null,
                   "children": [
                     {
                       "id": 1145,
@@ -89,6 +95,7 @@
                       "condition_raw": null,
                       "condition_cel": "false",
                       "condition_json": null,
+                      "condition_origin": null,
                       "children": []
                     }
                   ]
@@ -107,6 +114,7 @@
               "condition_raw": null,
               "condition_cel": null,
               "condition_json": null,
+              "condition_origin": null,
               "children": [
                 {
                   "id": 1147,
@@ -120,6 +128,7 @@
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
+                  "condition_origin": null,
                   "children": [
                     {
                       "id": 1148,
@@ -137,6 +146,7 @@
                           "Microsoft.AppPlatform/Spring/eurekaService/read"
                         ]
                       },
+                      "condition_origin": "json",
                       "children": []
                     },
                     {
@@ -155,6 +165,7 @@
                           "Microsoft.AppPlatform/Spring/eurekaService/write"
                         ]
                       },
+                      "condition_origin": "json",
                       "children": []
                     },
                     {
@@ -173,6 +184,7 @@
                           "Microsoft.AppPlatform/Spring/eurekaService/delete"
                         ]
                       },
+                      "condition_origin": "json",
                       "children": []
                     }
                   ]
@@ -189,6 +201,7 @@
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
+                  "condition_origin": null,
                   "children": [
                     {
                       "id": 1152,
@@ -202,6 +215,7 @@
                       "condition_raw": null,
                       "condition_cel": "false",
                       "condition_json": null,
+                      "condition_origin": null,
                       "children": []
                     }
                   ]
@@ -221,13 +235,14 @@
       "provider": "Azure",
       "provider_detail": "Microsoft.Authorization/roleDefinitions",
       "operator": "AND",
-      "condition_raw": "{\"assignableScopes\": [\"/\"]}",
+      "condition_raw": "\"assignableScopes\": [\n    \"/\"\n  ]",
       "condition_cel": "assignableScopes == [\"/\"]",
       "condition_json": {
         "assignableScopes": [
           "/"
         ]
       },
+      "condition_origin": "json",
       "children": []
     }
   ]

@@ -1,0 +1,246 @@
+{
+  "id": 1400,
+  "parent_id": null,
+  "name": "Statement",
+  "display_name": "\"Version\": \"2012-10-17\"",
+  "comment": null,
+  "provider": "AWS",
+  "provider_detail": "arn:aws",
+  "operator": "OR",
+  "condition_raw": "{\n  \"Version\":\"2012-10-17\",\n  \"Statement\": [\n    {\n      \"Sid\": \"FirstStatement\",\n      \"Effect\": \"Allow\",\n      \"Action\": [\"iam:ChangePassword\"],\n      \"Resource\": \"*\"\n    },\n    {\n      \"Sid\": \"SecondStatement\",\n      \"Effect\": \"Allow\",\n      \"Action\": \"s3:ListAllMyBuckets\",\n      \"Resource\": \"*\"\n    },\n    {\n      \"Sid\": \"ThirdStatement\",\n      \"Effect\": \"Allow\",\n      \"Action\": [\n        \"s3:List*\",\n        \"s3:Get*\"\n      ],\n      \"Resource\": [\n        \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data\",\n        \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data/*\"\n      ],\n      \"Condition\": {\"Bool\": {\"aws:MultiFactorAuthPresent\": \"true\"}}\n    }\n  ]\n}\n",
+  "condition_cel": null,
+  "condition_json": null,
+  "condition_origin": "json",
+  "children": [
+    {
+      "id": 1401,
+      "parent_id": 1400,
+      "name": "FirstStatement",
+      "display_name": "\"Sid\": \"FirstStatement\"",
+      "comment": null,
+      "provider": "AWS",
+      "provider_detail": "arn:aws",
+      "operator": "AND",
+      "condition_raw": "{\n      \"Sid\": \"FirstStatement\",\n      \"Effect\": \"Allow\",\n      \"Action\": [\"iam:ChangePassword\"],\n      \"Resource\": \"*\"\n    }",
+      "condition_cel": null,
+      "condition_json": null,
+      "condition_origin": "json",
+      "children": [
+        {
+          "id": 1402,
+          "parent_id": 1401,
+          "name": "Effect",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Effect\": \"Allow\"",
+          "condition_cel": "Effect == \"Allow\"",
+          "condition_json": {
+            "Effect": "Allow"
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1403,
+          "parent_id": 1401,
+          "name": "Action",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Action\": [\"iam:ChangePassword\"]",
+          "condition_cel": "Action == [\"iam:ChangePassword\"]",
+          "condition_json": {
+            "Action": [
+              "iam:ChangePassword"
+            ]
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1404,
+          "parent_id": 1401,
+          "name": "Resource",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Resource\": \"*\"",
+          "condition_cel": "Resource == \"*\"",
+          "condition_json": {
+            "Resource": "*"
+          },
+          "condition_origin": "json",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": 1405,
+      "parent_id": 1400,
+      "name": "SecondStatement",
+      "display_name": "\"Sid\": \"SecondStatement\"",
+      "comment": null,
+      "provider": "AWS",
+      "provider_detail": "arn:aws",
+      "operator": "AND",
+      "condition_raw": "{\n      \"Sid\": \"SecondStatement\",\n      \"Effect\": \"Allow\",\n      \"Action\": \"s3:ListAllMyBuckets\",\n      \"Resource\": \"*\"\n    }",
+      "condition_cel": null,
+      "condition_json": null,
+      "condition_origin": "json",
+      "children": [
+        {
+          "id": 1406,
+          "parent_id": 1405,
+          "name": "Effect",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Effect\": \"Allow\"",
+          "condition_cel": "Effect == \"Allow\"",
+          "condition_json": {
+            "Effect": "Allow"
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1407,
+          "parent_id": 1405,
+          "name": "Action",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Action\": \"s3:ListAllMyBuckets\"",
+          "condition_cel": "Action == \"s3:ListAllMyBuckets\"",
+          "condition_json": {
+            "Action": "s3:ListAllMyBuckets"
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1408,
+          "parent_id": 1405,
+          "name": "Resource",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Resource\": \"*\"",
+          "condition_cel": "Resource == \"*\"",
+          "condition_json": {
+            "Resource": "*"
+          },
+          "condition_origin": "json",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": 1409,
+      "parent_id": 1400,
+      "name": "ThirdStatement",
+      "display_name": "\"Sid\": \"ThirdStatement\"",
+      "comment": null,
+      "provider": "AWS",
+      "provider_detail": "arn:aws",
+      "operator": "AND",
+      "condition_raw": "{\n      \"Sid\": \"ThirdStatement\",\n      \"Effect\": \"Allow\",\n      \"Action\": [\n        \"s3:List*\",\n        \"s3:Get*\"\n      ],\n      \"Resource\": [\n        \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data\",\n        \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data/*\"\n      ],\n      \"Condition\": {\"Bool\": {\"aws:MultiFactorAuthPresent\": \"true\"}}\n    }",
+      "condition_cel": null,
+      "condition_json": null,
+      "condition_origin": "json",
+      "children": [
+        {
+          "id": 1410,
+          "parent_id": 1409,
+          "name": "Effect",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Effect\": \"Allow\"",
+          "condition_cel": "Effect == \"Allow\"",
+          "condition_json": {
+            "Effect": "Allow"
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1411,
+          "parent_id": 1409,
+          "name": "Action",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Action\": [\n        \"s3:List*\",\n        \"s3:Get*\"\n      ]",
+          "condition_cel": "Action == [\"s3:List*\", \"s3:Get*\"]",
+          "condition_json": {
+            "Action": [
+              "s3:List*",
+              "s3:Get*"
+            ]
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1412,
+          "parent_id": 1409,
+          "name": "Resource",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Resource\": [\n        \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data\",\n        \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data/*\"\n      ]",
+          "condition_cel": "Resource == [\"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data\", \"arn:aws:s3:::amzn-s3-demo-bucket-confidential-data/*\"]",
+          "condition_json": {
+            "Resource": [
+              "arn:aws:s3:::amzn-s3-demo-bucket-confidential-data",
+              "arn:aws:s3:::amzn-s3-demo-bucket-confidential-data/*"
+            ]
+          },
+          "condition_origin": "json",
+          "children": []
+        },
+        {
+          "id": 1413,
+          "parent_id": 1409,
+          "name": "Condition",
+          "display_name": null,
+          "comment": null,
+          "provider": "AWS",
+          "provider_detail": "arn:aws",
+          "operator": "AND",
+          "condition_raw": "\"Condition\": {\"Bool\": {\"aws:MultiFactorAuthPresent\": \"true\"}}",
+          "condition_cel": "Condition == {\"Bool\": {\"aws:MultiFactorAuthPresent\": \"true\"}}",
+          "condition_json": {
+            "Condition": {
+              "Bool": {
+                "aws:MultiFactorAuthPresent": "true"
+              }
+            }
+          },
+          "condition_origin": "json",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

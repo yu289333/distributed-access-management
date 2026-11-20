@@ -2,12 +2,16 @@
 
 import json
 
-if __package__:
-    from .conditionCel import populate_condition_cel
-    from .policyTree import load_document, make_node, run_cli, validate_tree
-else:
-    from conditionCel import populate_condition_cel
-    from policyTree import load_document, make_node, run_cli, validate_tree
+if not __package__:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.conditionExpression import populate_condition_cel
+from src.policyDocument import load_document
+from src.policyTree import make_node, validate_tree
+from src.policyCli import run_cli
+from src.conditionSource import attach_json_source
+
 
 
 def _rbac_tree(document, name):
@@ -36,8 +40,8 @@ def _rbac_tree(document, name):
                 values = permission.get(key.lower(), [])
                 if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
                     raise ValueError(f'Azure {key} must be a list of nonempty strings')
-                matches = node(key, 'OR', children=[node(value, condition_json={key: [value]})
-                                                  for value in values])
+                matches = node(key, 'OR', children=[node(key, condition_json={key: values})]
+                               if values else [])
                 parts.append(matches if key == include else
                              node(f'Exclude {key}', 'NOT', children=[matches]))
             planes.append(node(include + ' minus ' + exclude, children=parts))
@@ -128,6 +132,7 @@ def parse_policy(source, name=None):
     if fields.get('description'):
         root['comment'] = '"description": ' + json.dumps(fields['description'])
     root['condition_raw'] = source if isinstance(source, str) else json.dumps(original)
+    attach_json_source(root, source)
     validate_tree(root)
     return root
 

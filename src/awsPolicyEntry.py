@@ -1,13 +1,21 @@
-"""Parse AWS IAM policy documents into schema-compatible policy trees."""
+"""Parse AWS IAM policies into field trees with source-preserving expressions.
+
+Condition expressions compare original field values, preserving case, lists,
+wildcards and nested objects. Allow/deny composition stays in the tree.
+"""
 
 import json
 
-if __package__:
-    from .conditionCel import populate_condition_cel
-    from .policyTree import load_document, make_node, run_cli, validate_tree
-else:
-    from conditionCel import populate_condition_cel
-    from policyTree import load_document, make_node, run_cli, validate_tree
+if not __package__:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.conditionExpression import populate_condition_cel
+from src.policyDocument import load_document
+from src.policyTree import make_node, validate_tree
+from src.policyCli import run_cli
+from src.conditionSource import attach_json_source
+
 
 
 def _string_values(value):
@@ -87,6 +95,7 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
     if 'Version' in document:
         root['display_name'] = '"Version": ' + json.dumps(document['Version'])
     populate_condition_cel(root)
+    attach_json_source(root, source)
     validate_tree(root)
     return root
 

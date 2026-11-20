@@ -21,38 +21,39 @@ class CelTests(unittest.TestCase):
     def aws(self, source):
         return condition_to_cel(source, provider='AWS')
 
-    def test_actions_resources_and_negation(self):
-        expression = self.aws({'Action': ['ec2:Describe*', 's3:Get?bject'],
-                               'Resource': 'arn:aws:s3:::bucket/*'})
-        self.assertTrue(run(expression, {'action': 'EC2:DESCRIBEInstances', 'resource': 'arn:aws:s3:::bucket/item'}))
-        self.assertFalse(run(expression, {'action': 'ec2:DeleteInstance', 'resource': 'arn:aws:s3:::bucket/item'}))
-        self.assertFalse(run(expression, {'action': 'ec2:DescribeInstances', 'resource': 'arn:aws:s3:::other/item'}))
-        self.assertFalse(run(self.aws({'NotAction': 'iam:*'}), {'action': 'iam:GetUser'}))
-        self.assertTrue(run(self.aws({'NotResource': 'abc'}), {'resource': 'abcd'}))
-        self.assertFalse(run(self.aws({'Resource': 'a.b'}), {'resource': 'axb'}))
-
-    def test_variables_are_regex_escaped(self):
-        expression = self.aws({'Resource': 'arn:aws:iam::*:user/${aws:username}'})
-        self.assertTrue(run(expression, {'resource': 'arn:aws:iam::123:user/a.b'}, {'aws:username': 'a.b'}))
-        self.assertFalse(run(expression, {'resource': 'arn:aws:iam::123:user/axb'}, {'aws:username': 'a.b'}))
-        self.assertFalse(run(expression, {'resource': 'arn:aws:iam::123:user/a.b'}))
-
-    def test_mfa_if_exists(self):
-        expression = self.aws({'Condition': {'BoolIfExists': {'aws:MultiFactorAuthPresent': 'false'}}})
-        self.assertTrue(run(expression))
-        for value, expected in [(False, True), ('false', True), (True, False), ('true', False)]:
-            self.assertEqual(run(expression, context={'aws:MultiFactorAuthPresent': value}), expected)
-        self.assertFalse(run(self.aws({'Condition': {'Bool': {'mfa': 'true'}}})))
-        self.assertTrue(run(self.aws({'Condition': {'Null': {'mfa': 'true'}}})))
-        self.assertTrue(run(self.aws({'Condition': {'StringNotEquals': {'tag': 'x'}}})))
-        self.assertFalse(run(self.aws({'Condition': {'StringEquals': {'tag': 'x'}}})))
+    def test_aws_fields_preserve_names_values_and_types(self):
+        examples = [
+            {'Effect': 'Allow'}, {'Effect': 'Deny'},
+            {'Action': ['ec2:Describe*', 's3:Get?bject']},
+            {'Action': 'secretsmanager:GetRandomPassword'},
+            {'Resource': '*'},
+            {'Resource': 'arn:aws:iam::*:user/${aws:username}'},
+            {'NotAction': ['iam:*']}, {'NotResource': 'example'},
+            {'Principal': {'Service': 'lambda.amazonaws.com'}},
+            {'NotPrincipal': {'AWS': ['arn:aws:iam::123:root']}},
+            {'Condition': {'BoolIfExists': {'aws:MultiFactorAuthPresent': 'false'}}},
+            {'Condition': {'IpAddress': {'aws:SourceIp': '10.0.0.0/8'}}}]
+        for source in examples:
+            with self.subTest(source=source):
+                key, value = next(iter(source.items()))
+                expression = self.aws(source)
+                self.assertEqual(expression, key + ' == ' + json.dumps(value))
+                self.assertNotIn('request.', expression)
+                self.assertNotIn('.matches(', expression)
+                env = Environment()
+                program = env.program(env.compile(expression))
+                self.assertTrue(program.evaluate({key: json_to_cel(value)}))
+                other = [] if isinstance(value, list) else {} if isinstance(value, dict) else 'different'
+                self.assertFalse(program.evaluate({key: json_to_cel(other)}))
 
     def test_legacy_statement_and_raw_fallback(self):
-        raw = json.dumps({'Sid': 'example', 'Effect': 'Deny', 'Action': 's3:*', 'Resource': '*'})
-        expression = condition_to_cel(condition_raw=raw, provider='AWS')
-        self.assertTrue(run(expression, {'action': 's3:GetObject', 'resource': 'anything'}))
-        self.assertTrue(run(self.aws({'Effect': 'Deny'})))
-        self.assertTrue(run(condition_to_cel({'Effect': 'Allow'}, 'invalid raw', provider='AWS')))
+        source = {'Sid': 'example', 'Effect': 'Deny', 'Action': 's3:*', 'Resource': '*'}
+        expression = condition_to_cel(condition_raw=json.dumps(source), provider='AWS')
+        env = Environment()
+        program = env.program(env.compile(expression))
+        self.assertTrue(program.evaluate({k: json_to_cel(v) for k,v in source.items()}))
+        with self.assertRaises(ValueError):
+            condition_to_cel({'Effect': 'Allow'}, 'invalid raw', provider='AWS')
 
     def test_azure_planes_and_fields(self):
         expression = condition_to_cel({'notActions': ['*/write']}, provider='Azure',
@@ -153,8 +154,8 @@ class CelTests(unittest.TestCase):
             check(tree)
 
     def test_unsupported_conditions_are_explicit(self):
-        source = {'Condition': {'IpAddress': {'aws:SourceIp': '10.0.0.0/8'}}}
-        with self.assertRaisesRegex(ValueError, 'Unsupported AWS condition'):
+        source = {'UnknownField': 'value'}
+        with self.assertRaisesRegex(ValueError, 'Unsupported AWS field'):
             self.aws(source)
         node = make_node('unsupported', 'AWS', 'arn:aws', condition_json=source)
         populate_condition_cel(node)

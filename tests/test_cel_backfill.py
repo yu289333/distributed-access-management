@@ -33,6 +33,20 @@ class BackfillTests(unittest.TestCase):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT condition_cel FROM policy WHERE id=1')
             self.assertIsNone(cursor.fetchone()[0])
+            cursor.execute('SELECT condition_origin, condition_json FROM policy WHERE id=3')
+            self.assertEqual(cursor.fetchone(), ('json', {'Resource': '*'}))
+
+    def test_replace_checks_raw_json_agreement(self):
+        from src.convertConditions import convert_conditions
+        backfill(self.connection, apply=True)
+        with self.connection:
+            with self.connection.cursor() as cursor:
+                cursor.execute('UPDATE policy SET condition_raw=%s WHERE id=2', ('{"Action":"different"}',))
+        with self.assertRaisesRegex(ValueError, 'different conditions'):
+            convert_conditions(self.connection, apply=True, replace=True)
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT condition_json FROM policy WHERE id=2')
+            self.assertEqual(cursor.fetchone()[0], {'Action': 'ec2:Describe*'})
 
     def test_unsupported_source_rolls_back_entire_batch(self):
         with self.connection:

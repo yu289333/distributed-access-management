@@ -10,6 +10,7 @@
   "condition_raw": "{\n  \"mode\": \"Indexed\",\n  \"displayName\": \"Enforce VM Encryption\",\n  \"description\": \"This policy ensures that all Azure virtual machines have encryption enabled.\",\n  \"policyRule\": {\n    \"if\": {\n      \"allOf\": [\n        {\n          \"field\": \"type\",\n          \"equals\": \"Microsoft.Compute/virtualMachines\"\n        },\n        {\n          \"not\": {\n            \"field\": \"Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled\",\n            \"equals\": true\n          }\n        }\n      ]\n    },\n    \"then\": {\n      \"effect\": \"audit\",\n      \"details\": {\n        \"type\": \"Microsoft.Compute/virtualMachines\",\n        \"name\": \"Virtual Machines without encryption enabled\",\n        \"message\": \"Encryption is not enabled for virtual machine {field('name')}.\",\n        \"severity\": \"Critical\"\n      }\n    }\n  },\n  \"parameters\": {}\n}\n",
   "condition_cel": null,
   "condition_json": null,
+  "condition_origin": "json",
   "children": [
     {
       "id": 380,
@@ -23,6 +24,7 @@
       "condition_raw": null,
       "condition_cel": null,
       "condition_json": null,
+      "condition_origin": null,
       "children": [
         {
           "id": 381,
@@ -33,12 +35,13 @@
           "provider": "Azure",
           "provider_detail": "Microsoft.Authorization/policyDefinitions",
           "operator": "AND",
-          "condition_raw": "\"field\": \"type\", \"equals\": \"Microsoft.Compute/virtualMachines\"",
+          "condition_raw": "{\n          \"field\": \"type\",\n          \"equals\": \"Microsoft.Compute/virtualMachines\"\n        }",
           "condition_cel": "type == \"Microsoft.Compute/virtualMachines\"",
           "condition_json": {
             "field": "type",
             "equals": "Microsoft.Compute/virtualMachines"
           },
+          "condition_origin": "json",
           "children": []
         },
         {
@@ -53,6 +56,7 @@
           "condition_raw": null,
           "condition_cel": null,
           "condition_json": null,
+          "condition_origin": null,
           "children": [
             {
               "id": 383,
@@ -63,12 +67,13 @@
               "provider": "Azure",
               "provider_detail": "Microsoft.Authorization/policyDefinitions",
               "operator": "AND",
-              "condition_raw": "\"field\": \"Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled\", \"equals\": true",
+              "condition_raw": "{\n            \"field\": \"Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled\",\n            \"equals\": true\n          }",
               "condition_cel": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true",
               "condition_json": {
                 "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled",
                 "equals": true
               },
+              "condition_origin": "json",
               "children": []
             }
           ]
@@ -87,6 +92,7 @@
       "condition_raw": null,
       "condition_cel": null,
       "condition_json": null,
+      "condition_origin": null,
       "children": [
         {
           "id": 386,
@@ -102,6 +108,7 @@
           "condition_json": {
             "effect": "audit"
           },
+          "condition_origin": "json",
           "children": []
         },
         {
@@ -116,6 +123,7 @@
           "condition_raw": null,
           "condition_cel": null,
           "condition_json": null,
+          "condition_origin": null,
           "children": [
             {
               "id": 388,
@@ -131,6 +139,7 @@
               "condition_json": {
                 "type": "Microsoft.Compute/virtualMachines"
               },
+              "condition_origin": "json",
               "children": []
             },
             {
@@ -147,6 +156,7 @@
               "condition_json": {
                 "name": "Virtual Machines without encryption enabled"
               },
+              "condition_origin": "json",
               "children": []
             },
             {
@@ -163,6 +173,7 @@
               "condition_json": {
                 "message": "Encryption is not enabled for virtual machine {field('name')}."
               },
+              "condition_origin": "json",
               "children": []
             },
             {
@@ -179,6 +190,7 @@
               "condition_json": {
                 "severity": "Critical"
               },
+              "condition_origin": "json",
               "children": []
             }
           ]
