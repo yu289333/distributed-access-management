@@ -15,15 +15,21 @@ class PolicyTreeTests(unittest.TestCase):
         cursor = RecordingCursor()
         root_id = policyTree.insert_policy_tree(cursor, tree, schema='auth')
         self.assertEqual(root_id, 1)
-        self.assertEqual(len(cursor.rows), 5)
+        self.assertEqual(len(cursor.rows), 17)
         self.assertEqual(cursor.rows[0]['params'][1], "O'Reilly")
         self.assertIsNone(cursor.rows[0]['params'][0])
-        for row in cursor.rows[1:]:
-            self.assertEqual(row['params'][0], root_id)
-            self.assertEqual(row['params'][4:7], ['AWS', 'arn:aws', 'AND'])
-            self.assertIsInstance(row['params'][9], dict)
-            self.assertIn('"auth"."policy"', row['query'])
-            self.assertNotIn("O'Reilly", row['query'])
+        for offset in range(1, 17, 4):
+            group = cursor.rows[offset]
+            group_id = offset + 1
+            self.assertEqual(group['params'][0], root_id)
+            self.assertIsNone(group['params'][9])
+            for row in cursor.rows[offset + 1:offset + 4]:
+                self.assertEqual(row['params'][0], group_id)
+                self.assertEqual(row['params'][4:7], ['AWS', 'arn:aws', 'AND'])
+                self.assertIsInstance(row['params'][9], dict)
+                self.assertEqual(len(row['params'][9]), 1)
+                self.assertIn('"auth"."policy"', row['query'])
+                self.assertNotIn("O'Reilly", row['query'])
         self.assertEqual(json.loads(tree['condition_raw']), json.loads(source))
 
     def test_azure_uses_the_same_writer(self):

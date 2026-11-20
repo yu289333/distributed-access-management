@@ -73,11 +73,19 @@ class AwsEmitterTests(unittest.TestCase):
         document = emit_policy(tree)
         self.assertEqual(document, source)
         rebuilt = parse_policy(document)
+        sid_by_action = {'s3:Get*': 'allow-read', 's3:PutObject': 'allow-write',
+                         's3:*': 'deny-prod'}
+
+        def selected(field):
+            # Leaves are now single fields; Sid lives on the statement group, so
+            # select statements by their Action instead.
+            sid = sid_by_action.get(field.get('Action'))
+            return True if sid is None else sid in matched
+
         for matched in (set(), {'allow-read'}, {'allow-write'}, {'deny-prod'},
                         {'allow-read', 'deny-prod'}, {'allow-read', 'allow-write', 'deny-prod'}):
             with self.subTest(matched=matched):
-                self.assertEqual(evaluate(tree, lambda s: s['Sid'] in matched),
-                                 evaluate(rebuilt, lambda s: s['Sid'] in matched))
+                self.assertEqual(evaluate(tree, selected), evaluate(rebuilt, selected))
 
     def test_deny_only_policy_round_trips(self):
         source = {'Statement': {'Effect': 'Deny', 'Action': '*', 'Resource': '*'}}
@@ -120,7 +128,9 @@ class AwsEmitterTests(unittest.TestCase):
         self.assertEqual([s['Sid'] for s in document['Statement']], ['a', 'c'])
 
         edited = parse_policy(source)
-        edited['children'][0]['condition_json']['Action'] = 's3:GetObject'
+        action = next(child for child in edited['children'][0]['children']
+                      if 'Action' in child['condition_json'])
+        action['condition_json']['Action'] = 's3:GetObject'
         self.assertEqual(emit_policy(edited)['Statement'][0]['Action'], 's3:GetObject')
 
     def test_emit_aws_is_an_alias(self):
@@ -155,6 +165,7 @@ class AwsEmitterTests(unittest.TestCase):
             emit_policy(bad_leaf)
 
         empty_leaf = parse_policy(base)
+        empty_leaf['children'][0]['children'] = []
         empty_leaf['children'][0]['condition_json'] = None
         with self.assertRaises(ValueError):
             emit_policy(empty_leaf)

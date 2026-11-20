@@ -1,0 +1,189 @@
+{
+  "id": 379,
+  "parent_id": null,
+  "name": "\"mode\": \"Indexed\" \"policyRule\"",
+  "display_name": "Enforce VM Encryption",
+  "comment": "\"description\": \"This policy ensures that all Azure virtual machines have encryption enabled.\"",
+  "provider": "Azure",
+  "provider_detail": "Microsoft.Authorization/policyDefinitions",
+  "operator": "AND",
+  "condition_raw": "{\n  \"mode\": \"Indexed\",\n  \"displayName\": \"Enforce VM Encryption\",\n  \"description\": \"This policy ensures that all Azure virtual machines have encryption enabled.\",\n  \"policyRule\": {\n    \"if\": {\n      \"allOf\": [\n        {\n          \"field\": \"type\",\n          \"equals\": \"Microsoft.Compute/virtualMachines\"\n        },\n        {\n          \"not\": {\n            \"field\": \"Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled\",\n            \"equals\": true\n          }\n        }\n      ]\n    },\n    \"then\": {\n      \"effect\": \"audit\",\n      \"details\": {\n        \"type\": \"Microsoft.Compute/virtualMachines\",\n        \"name\": \"Virtual Machines without encryption enabled\",\n        \"message\": \"Encryption is not enabled for virtual machine {field('name')}.\",\n        \"severity\": \"Critical\"\n      }\n    }\n  },\n  \"parameters\": {}\n}\n",
+  "condition_cel": null,
+  "condition_json": null,
+  "children": [
+    {
+      "id": 380,
+      "parent_id": 379,
+      "name": "allOf",
+      "display_name": null,
+      "comment": null,
+      "provider": "Azure",
+      "provider_detail": "Microsoft.Authorization/policyDefinitions",
+      "operator": "AND",
+      "condition_raw": null,
+      "condition_cel": null,
+      "condition_json": null,
+      "children": [
+        {
+          "id": 381,
+          "parent_id": 380,
+          "name": "Azure condition",
+          "display_name": null,
+          "comment": null,
+          "provider": "Azure",
+          "provider_detail": "Microsoft.Authorization/policyDefinitions",
+          "operator": "AND",
+          "condition_raw": "\"field\": \"type\", \"equals\": \"Microsoft.Compute/virtualMachines\"",
+          "condition_cel": "type == \"Microsoft.Compute/virtualMachines\"",
+          "condition_json": {
+            "field": "type",
+            "equals": "Microsoft.Compute/virtualMachines"
+          },
+          "children": []
+        },
+        {
+          "id": 382,
+          "parent_id": 380,
+          "name": "not",
+          "display_name": null,
+          "comment": null,
+          "provider": "Azure",
+          "provider_detail": "Microsoft.Authorization/policyDefinitions",
+          "operator": "NOT",
+          "condition_raw": null,
+          "condition_cel": null,
+          "condition_json": null,
+          "children": [
+            {
+              "id": 383,
+              "parent_id": 382,
+              "name": "Azure condition",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/policyDefinitions",
+              "operator": "AND",
+              "condition_raw": "\"field\": \"Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled\", \"equals\": true",
+              "condition_cel": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true",
+              "condition_json": {
+                "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled",
+                "equals": true
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 384,
+      "parent_id": 379,
+      "name": "then",
+      "display_name": null,
+      "comment": null,
+      "provider": "Azure",
+      "provider_detail": "Microsoft.Authorization/policyDefinitions",
+      "operator": "AND",
+      "condition_raw": null,
+      "condition_cel": null,
+      "condition_json": null,
+      "children": [
+        {
+          "id": 386,
+          "parent_id": 384,
+          "name": "effect",
+          "display_name": null,
+          "comment": null,
+          "provider": "Azure",
+          "provider_detail": "Microsoft.Authorization/policyDefinitions",
+          "operator": "AND",
+          "condition_raw": "\"effect\": \"audit\"",
+          "condition_cel": "effect == \"audit\"",
+          "condition_json": {
+            "effect": "audit"
+          },
+          "children": []
+        },
+        {
+          "id": 387,
+          "parent_id": 384,
+          "name": "details",
+          "display_name": null,
+          "comment": null,
+          "provider": "Azure",
+          "provider_detail": "Microsoft.Authorization/policyDefinitions",
+          "operator": "AND",
+          "condition_raw": null,
+          "condition_cel": null,
+          "condition_json": null,
+          "children": [
+            {
+              "id": 388,
+              "parent_id": 387,
+              "name": "type",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/policyDefinitions",
+              "operator": "AND",
+              "condition_raw": "\"type\": \"Microsoft.Compute/virtualMachines\"",
+              "condition_cel": "type == \"Microsoft.Compute/virtualMachines\"",
+              "condition_json": {
+                "type": "Microsoft.Compute/virtualMachines"
+              },
+              "children": []
+            },
+            {
+              "id": 389,
+              "parent_id": 387,
+              "name": "name",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/policyDefinitions",
+              "operator": "AND",
+              "condition_raw": "\"name\": \"Virtual Machines without encryption enabled\"",
+              "condition_cel": "name == \"Virtual Machines without encryption enabled\"",
+              "condition_json": {
+                "name": "Virtual Machines without encryption enabled"
+              },
+              "children": []
+            },
+            {
+              "id": 390,
+              "parent_id": 387,
+              "name": "message",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/policyDefinitions",
+              "operator": "AND",
+              "condition_raw": "\"message\": \"Encryption is not enabled for virtual machine {field('name')}.\"",
+              "condition_cel": "message == \"Encryption is not enabled for virtual machine {field('name')}.\"",
+              "condition_json": {
+                "message": "Encryption is not enabled for virtual machine {field('name')}."
+              },
+              "children": []
+            },
+            {
+              "id": 391,
+              "parent_id": 387,
+              "name": "severity",
+              "display_name": null,
+              "comment": null,
+              "provider": "Azure",
+              "provider_detail": "Microsoft.Authorization/policyDefinitions",
+              "operator": "AND",
+              "condition_raw": "\"severity\": \"Critical\"",
+              "condition_cel": "severity == \"Critical\"",
+              "condition_json": {
+                "severity": "Critical"
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -37,16 +37,16 @@ def _check_provider(tree):
 
 
 def _group(node, label):
-    """A group is an OR of leaves, or a single leaf after canonicalization."""
+    """A group is an OR of statement groups, a group, or a leaf."""
     if node.get('operator') == 'OR':
         return node.get('children', [])
-    if node.get('condition_json') is not None:
+    if node.get('children') or node.get('condition_json') is not None:
         return [node]
-    raise ValueError(f'Unexpected AWS tree shape: {label} must be OR(leaves) or a leaf')
+    raise ValueError(f'Unexpected AWS tree shape: {label} must be OR(statements) or a statement')
 
 
 def _statement_groups(tree):
-    """Locate the allow and deny leaves in a parse_policy-shaped tree."""
+    """Locate the allow and deny statement groups in a parse_policy-shaped tree."""
     children = tree.get('children', [])
     if tree.get('operator') == 'OR':
         return children, []
@@ -59,15 +59,38 @@ def _statement_groups(tree):
                      'AND(OR(allows), NOT(OR(denies))), optionally canonicalized')
 
 
+def _sid(node):
+    """Recover Sid, which the parser keeps as the group's label, not a leaf."""
+    display = node.get('display_name') or ''
+    prefix = '"Sid": '
+    return json.loads(display[len(prefix):]) if display.startswith(prefix) else None
 
-def _leaf_statement(node, index):
+
+def _statement(node, index):
+    """Rebuild one statement from a group of single-field leaves.
+
+    The parser stores one leaf per statement field (``{'Action': [...]}``,
+    ``{'Resource': ...}``, ...). Older trees may hold the whole statement in a
+    single leaf, which is also accepted.
+    """
     if node.get('children'):
-        raise ValueError(f'Statement {index} must be a leaf')
-    statement = node.get('condition_json')
-    if not isinstance(statement, dict):
-        raise ValueError(f'Statement {index} requires a condition_json object')
+        statement = {}
+        for child in node['children']:
+            expression = child.get('condition_json')
+            if child.get('children') or not isinstance(expression, dict) or len(expression) != 1:
+                raise ValueError(f'Statement {index} fields must be single-key leaves')
+            statement.update(deepcopy(expression))
+    else:
+        statement = node.get('condition_json')
+        if not isinstance(statement, dict):
+            raise ValueError(f'Statement {index} requires a condition_json object')
+        statement = deepcopy(statement)
+    sid = _sid(node)
+    if sid is not None:
+        statement['Sid'] = sid
     _check_statement(statement, index)
-    return deepcopy(statement)
+    return statement
+
 
 
 def _statement_container(document):
@@ -149,7 +172,7 @@ def emit_policy(tree):
     _check_provider(tree)
     allowed, denied = _statement_groups(tree)
     nodes = list(allowed) + list(denied)
-    statements = [_leaf_statement(node, index)
+    statements = [_statement(node, index)
                   for index, node in enumerate(nodes, 1)]
     metadata, original = _original_shape(tree)
     document = metadata

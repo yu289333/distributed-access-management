@@ -3,8 +3,10 @@
 import json
 
 if __package__:
+    from .conditionCel import populate_condition_cel
     from .policyTree import load_document, make_node, run_cli, validate_tree
 else:
+    from conditionCel import populate_condition_cel
     from policyTree import load_document, make_node, run_cli, validate_tree
 
 
@@ -49,7 +51,15 @@ def _rbac_tree(document, name):
                 grant, node('Permission condition', condition_json={
                     'condition': condition, 'conditionVersion': permission.get('conditionversion')})])
         groups.append(grant)
-    return node(name, 'OR', children=groups)
+    if 'assignablescopes' not in fields:
+        return node(name, 'OR', children=groups)
+    scopes = fields['assignablescopes']
+    if not isinstance(scopes, list) or not all(isinstance(scope, str) and scope for scope in scopes):
+        raise ValueError('Azure assignableScopes must be a list of nonempty strings')
+    return node(name, children=[node('permissions', 'OR', children=groups),
+                                node('assignableScopes', condition_json={'assignableScopes': scopes},
+                                     condition_raw=json.dumps({'assignableScopes': scopes}))])
+
 
 
 def _rule_tree(rule, name):
@@ -77,11 +87,25 @@ def _rule_tree(rule, name):
                 raise ValueError(f'Azure {key} requires a nonempty condition array')
             return node(key, 'AND' if key == 'allOf' else 'OR',
                         children=[condition(child) for child in value])
-        return node('Azure condition', condition_json=expression,
-                    condition_raw=json.dumps(expression))
+        return populate_condition_cel(node(
+            'Azure condition', condition_json=expression,
+            condition_raw=json.dumps(expression)[1:-1]))
 
-    return node(name, children=[condition(rule['if'])],
-                comment=f'Azure Policy applicability; effect: {then["effect"]}')
+    def outcome_fields(mapping):
+        children = []
+        for key, value in mapping.items():
+            if isinstance(value, dict) and value:
+                children.append(node(key, children=outcome_fields(value)))
+            else:
+                expression = {key: value}
+                leaf = node(key, condition_json=expression,
+                            condition_raw=json.dumps(expression)[1:-1])
+                populate_condition_cel(leaf)
+                children.append(leaf)
+        return children
+
+    outcome = node('then', children=outcome_fields(then))
+    return node(name, children=[condition(rule['if']), outcome])
 
 
 def parse_policy(source, name=None):
@@ -93,12 +117,16 @@ def parse_policy(source, name=None):
     fields = {key.lower(): value for key, value in document.items()}
     label = name or original.get('id') or fields.get('id') or original.get('name') or fields.get('name') or fields.get('rolename') or fields.get('displayname') or 'Azure policy'
     if 'policyrule' in fields:
+        label = name or original.get('id') or fields.get('id') or (
+            ('\"mode\": ' + json.dumps(fields['mode']) + ' ') if 'mode' in fields else ''
+        ) + '\"policyRule\"'
         root = _rule_tree(fields['policyrule'], label)
     else:
         root = _rbac_tree(document, label)
+        populate_condition_cel(root)
     root['display_name'] = fields.get('rolename') or fields.get('displayname') or fields.get('name')
     if fields.get('description'):
-        root['comment'] = '\n'.join(filter(None, [fields['description'], root['comment']]))
+        root['comment'] = '"description": ' + json.dumps(fields['description'])
     root['condition_raw'] = source if isinstance(source, str) else json.dumps(original)
     validate_tree(root)
     return root

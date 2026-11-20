@@ -4,7 +4,7 @@ import unittest
 from src.awsPolicyEntry import parse_policy as parse_aws
 from src.azurePolicyEntry import parse_policy as parse_azure
 from src.gcpPolicyEntry import parse_policy as parse_gcp
-from src.policyTree import canonicalize, validate_tree
+from src.policyTree import canonicalize, make_node, validate_tree
 from policy_support import ROOT, evaluate, walk
 
 
@@ -32,11 +32,15 @@ def contents(expression):
 
 class CanonicalizeTests(unittest.TestCase):
     def test_nested_groups_of_the_same_operator_are_spliced(self):
-        tree = parse_azure((ROOT / 'examples/azure-classic-vm-role.json').read_text())
+        leaf = lambda name: make_node(name, 'AWS', 'arn:aws',
+                                      condition_json={'x': name})
+        tree = make_node('root', 'AWS', 'arn:aws', 'OR', children=[
+            make_node('inner', 'AWS', 'arn:aws', 'OR',
+                      children=[leaf('a'), leaf('b')])])
         reduced = canonicalize(tree)
-        self.assertLess(len(nodes(reduced)), len(nodes(tree)))
-        self.assertCountEqual(leaves(reduced), leaves(tree))
+        self.assertEqual(len(nodes(reduced)), 3)
         self.assertEqual(reduced['operator'], 'OR')
+        self.assertCountEqual(leaves(reduced), leaves(tree))
         for child in reduced['children']:
             self.assertNotEqual(child['operator'], 'OR')
 
