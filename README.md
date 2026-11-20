@@ -25,6 +25,11 @@ The parsers and database writer are separate:
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/azurePolicyEmitter.py` | `emit_policy(tree)` (alias `emit_azure`) | Rebuild an Azure role or policy definition from an Azure policy tree. |
 | `src/gcpPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_gcp`) | Rebuild a GCP IAM policy from a GCP policy tree. |
+| `src/morph.py` | `translate(tree, source='aws', target='azure')`, `register_target` | Decode a source tree into neutral atoms and encode a target. |
+| `src/vocabulary.py` | `atom(domain, verb)`, `DOMAINS`, `VERBS` | Provider-independent action atoms. |
+| `src/policyStatement.py` | `make_statement(effect, actions, resources, conditions, untranslated)` | Neutral statement produced by source adapters. |
+| `src/awsVocabulary.py`, `src/azureVocabulary.py` | `read`/`decode`, `encode`/`build` | Per-provider adapters; a new cloud adds one pair. |
+| `src/awsToAzure.py` | `translate(tree)`, `translate_tree(tree)` | Backward-compatible AWS → Azure API and CLI. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
@@ -143,6 +148,58 @@ Every node must have `provider = 'Azure'`, and the tree must have the parser's
 shape. Canonicalized Azure trees are not accepted: canonicalization drops the
 `permissions` and `then` grouping labels the emitter uses. Locks, ARM templates,
 initiatives, and assignments are not emitted.
+
+### Cross-cloud translation (AWS → Azure)
+
+`morph.translate(tree, source='aws', target='azure')` returns an Azure RBAC
+role definition and a report; `translate_tree` returns the Azure tree instead, so
+the result still flows through the shared format. The AWS tree is read back to a
+policy document (so edits to its leaves are reflected), each action is decoded to
+a neutral atom, the atom is encoded for the target, and the Azure document is
+parsed into an Azure tree that `azurePolicyEmitter.emit_policy` reproduces.
+
+The translation is split into adapters, not one translator per pair:
+
+```
+AWS action ──decode──▶ atom {domain, verb} ──encode──▶ Azure action
+```
+
+- a source adapter returns neutral statements (`policyStatement`): effect,
+  provider action strings, resources, condition operator names, and the fields
+  it could not express;
+- `awsVocabulary.decode`: `ec2:Describe*` → `{compute, read}`; the service table
+  maps `ec2`, `s3`, `logs`, ... to domains and the verb prefix maps to
+  `read`/`write`/`delete`/`all`;
+- `azureVocabulary.encode`: `{compute, read}` → `Microsoft.Compute/*/read`;
+- `morph.translate` is the engine; `register_source()` and `register_target()`
+  add adapter pairs at runtime.
+
+Adding a provider therefore adds one adapter pair (a source reader/decoder or a
+target encoder/builder), not a translator for every ordered pair: adapters grow
+with providers (2N) instead of with pairs (N(N−1)). Today only `aws → azure` is
+wired.
+
+One caveat: GCP IAM is binding-based (roles bound to members), not a list of
+actions. Using GCP as a cross-cloud *source* needs its predefined roles expanded
+to permissions first; the action-statement model does not cover that yet. GCP as
+a target can produce a custom role with `includedPermissions`.
+
+The report lists unmapped actions, untranslated `Resource` ARNs, and every
+approximation. This is a starting point, not a proof of equivalence: the mapping
+is service-level, `notActions` is block-scoped (it does not override grants from
+other roles), and conditions, `NotAction`/`NotResource`, and principals are not
+translated.
+
+```sh
+python src/awsToAzure.py examples/aws-ec2-readonly.json --report
+python - <<'PY'
+from src.awsPolicyEntry import parse_policy
+from src.morph import translate
+tree = parse_policy(open('examples/aws-ec2-readonly.json').read())
+document, report = translate(tree, source='aws', target='azure')
+print(document['permissions'][0]['actions'])
+PY
+```
 
 ### GCP parsing
 
