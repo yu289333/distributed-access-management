@@ -24,10 +24,7 @@ The parsers and database writer are separate:
 | `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/azurePolicyEmitter.py` | `emit_policy(tree)` (alias `emit_azure`) | Rebuild an Azure role or policy definition from an Azure policy tree. |
-| `src/morph.py` | `translate(tree, source='aws', target='azure')`, `register_target` | Decode a source tree into neutral atoms and encode a target. |
-| `src/vocabulary.py` | `atom(domain, verb)`, `DOMAINS`, `VERBS` | Provider-independent action atoms. |
-| `src/awsVocabulary.py`, `src/azureVocabulary.py` | `read`/`decode`, `encode`/`build` | Per-provider adapters; a new cloud adds one pair. |
-| `src/awsToAzure.py` | `translate(tree)`, `translate_tree(tree)` | Backward-compatible AWS → Azure API and CLI. |
+| `src/gcpPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_gcp`) | Rebuild a GCP IAM policy from a GCP policy tree. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
@@ -147,49 +144,6 @@ shape. Canonicalized Azure trees are not accepted: canonicalization drops the
 `permissions` and `then` grouping labels the emitter uses. Locks, ARM templates,
 initiatives, and assignments are not emitted.
 
-### Cross-cloud translation (AWS → Azure)
-
-`morph.translate(tree, source='aws', target='azure')` returns an Azure RBAC
-role definition and a report; `translate_tree` returns the Azure tree instead, so
-the result still flows through the shared format. The AWS tree is read back to a
-policy document (so edits to its leaves are reflected), each action is decoded to
-a neutral atom, the atom is encoded for the target, and the Azure document is
-parsed into an Azure tree that `azurePolicyEmitter.emit_policy` reproduces.
-
-The translation is split into adapters, not one translator per pair:
-
-```
-AWS action ──decode──▶ atom {domain, verb} ──encode──▶ Azure action
-```
-
-- `awsVocabulary.decode`: `ec2:Describe*` → `{compute, read}`; the service table
-  maps `ec2`, `s3`, `logs`, ... to domains and the verb prefix maps to
-  `read`/`write`/`delete`/`all`;
-- `azureVocabulary.encode`: `{compute, read}` → `Microsoft.Compute/*/read`;
-- `morph.translate` is the engine; `register_target()` adds a target adapter.
-
-Adding a provider therefore adds one adapter pair (a source reader/decoder or a
-target encoder/builder), not a translator for every ordered pair: adapters grow
-with providers (2N) instead of with pairs (N(N−1)). Today only `aws → azure` is
-wired.
-
-The report lists unmapped actions, untranslated `Resource` ARNs, and every
-approximation. This is a starting point, not a proof of equivalence: the mapping
-is service-level, `notActions` is block-scoped (it does not override grants from
-other roles), and conditions, `NotAction`/`NotResource`, and principals are not
-translated.
-
-```sh
-python src/awsToAzure.py examples/aws-ec2-readonly.json --report
-python - <<'PY'
-from src.awsPolicyEntry import parse_policy
-from src.morph import translate
-tree = parse_policy(open('examples/aws-ec2-readonly.json').read())
-document, report = translate(tree, source='aws', target='azure')
-print(document['permissions'][0]['actions'])
-PY
-```
-
 ### GCP parsing
 
 GCP trees have `provider = 'GCP'` and
@@ -207,6 +161,16 @@ IAM Conditions are kept as native JSON: the CEL `expression` text is stored
 unchanged and is not parsed, translated, or written to `condition_cel`, which
 remains NULL. Deny policies, principal access boundary policies, and the
 contents of `auditConfigs` are not parsed.
+
+### GCP emitting
+
+`gcpPolicyEmitter.emit_policy(tree)` (also exported as `emit_gcp`) rebuilds the
+GCP IAM policy from a tree produced by `gcpPolicyEntry.parse_policy` or read back
+from the database. Bindings are rebuilt from the role, members, and optional IAM
+condition leaves, so edits are reflected; `version` and `etag` come from the
+root's `condition_raw`. Every node must have `provider = 'GCP'`. It is the
+outbound half of the GCP morph; it does not turn AWS or Azure trees into GCP
+policies.
 
 ### Usage
 
@@ -238,6 +202,13 @@ Rebuild an Azure role or policy definition from a saved tree:
 ```sh
 python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run > tree.json
 python src/azurePolicyEmitter.py tree.json
+```
+
+Rebuild a GCP policy from a saved tree:
+
+```sh
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run > tree.json
+python src/gcpPolicyEmitter.py tree.json
 ```
 
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
