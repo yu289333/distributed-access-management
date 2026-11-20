@@ -10,8 +10,8 @@ The patent pending technology is to morph the access policies in AWS format to t
 ## Directory structure
 - /db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
 - /lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
-- /src contains AWS, Azure, and GCP parsers and a shared PostgreSQL policy-tree writer.
-- /examples contains standalone JSON policies for use with the parsers.
+- /src contains AWS, Azure, and GCP parsers, the AWS emitter, and the shared tree writer.
+- /examples contains standalone JSON policies for use with the parsers; /examples/sketches holds the non-JSON row diagrams.
 - /tests contains parser, tree-validation, and persistence regression tests.
 
 ## Policy entry modules
@@ -21,6 +21,7 @@ The parsers and database writer are separate:
 | Module | Public API | Purpose |
 | --- | --- | --- |
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
+| `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
@@ -60,6 +61,25 @@ denies use `OR(allows)`. A deny-only policy grants nothing. Statement matching
 requires AWS-aware interpretation of the JSON; Effect and Sid are metadata,
 not ordinary matching predicates. This is a representation of one policy's
 grants, not an effective-permissions evaluator across AWS policies or SCPs.
+
+### AWS emitting
+
+`awsPolicyEmitter.emit_policy(tree)` (also exported as `emit_aws`) rebuilds an
+AWS IAM policy document from a tree produced by `awsPolicyEntry.parse_policy`,
+from a canonicalized version of it, or from the same tree read back from the
+database. It is the outbound half of the AWS morph; it does not turn Azure or
+GCP trees into AWS policies.
+
+Statements are emitted verbatim from each leaf's `condition_json`, so this
+round trip needs no `condition_cel` translation and never sets that column.
+Every node must have `provider = 'AWS'`, and the tree must have the shape the
+AWS parser produces; other shapes are rejected. Canonicalization may collapse a
+one-statement allow or deny group to a leaf, which is accepted. `Document`,
+`PolicyDocument`, and `PolicyVersion.Document` wrappers are normalised to a
+top-level policy, and outer fields such as `Version` and `Id` are recovered from
+the root's `condition_raw`. Statement order is restored by exact content, then by
+`Sid`, so statements edited in the tree keep their original slot. Without
+`condition_raw` the tree order is used (allows before explicit denies).
 
 ### Azure parsing
 
@@ -119,6 +139,13 @@ python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run
 python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run
 python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run
 python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run
+```
+
+Rebuild an AWS policy from a tree saved by `--dry-run`:
+
+```sh
+python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > tree.json
+python src/awsPolicyEmitter.py tree.json
 ```
 
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,

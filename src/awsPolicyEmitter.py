@@ -36,6 +36,15 @@ def _check_provider(tree):
         pending.extend(node.get('children', []))
 
 
+def _group(node, label):
+    """A group is an OR of leaves, or a single leaf after canonicalization."""
+    if node.get('operator') == 'OR':
+        return node.get('children', [])
+    if node.get('condition_json') is not None:
+        return [node]
+    raise ValueError(f'Unexpected AWS tree shape: {label} must be OR(leaves) or a leaf')
+
+
 def _statement_groups(tree):
     """Locate the allow and deny leaves in a parse_policy-shaped tree."""
     children = tree.get('children', [])
@@ -44,12 +53,11 @@ def _statement_groups(tree):
     if tree.get('operator') == 'AND' and len(children) == 2:
         allowed, excluded = children
         denied = excluded.get('children', [])
-        if (allowed.get('operator') == 'OR' and
-                excluded.get('operator') == 'NOT' and len(denied) == 1 and
-                denied[0].get('operator') == 'OR'):
-            return allowed.get('children', []), denied[0].get('children', [])
+        if excluded.get('operator') == 'NOT' and len(denied) == 1:
+            return _group(allowed, 'allows'), _group(denied[0], 'denies')
     raise ValueError('Unexpected AWS tree shape; expected OR(allows) or '
-                     'AND(OR(allows), NOT(OR(denies)))')
+                     'AND(OR(allows), NOT(OR(denies))), optionally canonicalized')
+
 
 
 def _leaf_statement(node, index):

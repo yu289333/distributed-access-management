@@ -8,7 +8,7 @@ import unittest
 
 from src.awsPolicyEmitter import emit_aws, emit_policy, main
 from src.awsPolicyEntry import parse_policy
-from src.policyTree import make_node, validate_tree
+from src.policyTree import canonicalize, make_node, validate_tree
 from policy_support import ROOT, documents, evaluate, walk
 
 
@@ -51,6 +51,15 @@ class AwsEmitterTests(unittest.TestCase):
                 # API response wrappers are normalised to the inner policy document.
                 expected = source['Document'] if 'Document' in source else source
                 self.assertEqual(emit_policy(parse_policy(source)), expected)
+
+    def test_canonicalized_trees_still_emit(self):
+        # canonicalize() may collapse a one-statement allow/deny group to a leaf.
+        for path in (ROOT / 'examples').glob('aws-*.json'):
+            with self.subTest(path=path.name):
+                source = json.loads(path.read_text())
+                expected = source['Document'] if 'Document' in source else source
+                tree = canonicalize(parse_policy(source))
+                self.assertEqual(emit_policy(tree), expected)
 
     def test_order_and_deny_semantics_survive_a_round_trip(self):
         source = {'Version': '2012-10-17', 'Id': 'mixed', 'Statement': [
