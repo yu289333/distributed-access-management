@@ -1,0 +1,26 @@
+{
+  "Name": "Web App Contributor",
+  "IsCustom": true,
+  "Description": "Allows users to manage and deploy web apps",
+  "Actions": [
+    "Microsoft.Web/sites/*",
+    "Microsoft.Web/serverFarms/*",
+    "Microsoft.Web/certificates/*",
+    "Microsoft.Web/sites/slots/*",
+    "Microsoft.Web/sites/config/*",
+    "Microsoft.Insights/components/*",
+    "Microsoft.Resources/deployments/*",
+    "Microsoft.Resources/subscriptions/resourceGroups/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/resources/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/resources/write",
+    "Microsoft.Authorization/*/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/{subscriptionId}",
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}",
+    "/subscriptions/{subscriptionId}/providers/Microsoft.Web/sites/{siteName}"
+  ]
+}

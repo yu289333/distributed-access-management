@@ -1,0 +1,38 @@
+{
+  "Arn": "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+  "AttachmentCount": 0,
+  "CreateDate": "2015-02-06T18:40:15+00:00",
+  "DefaultVersionId": "v1",
+  "Document": {
+    "Statement": [
+      {
+        "Action": "ec2:*",
+        "Effect": "Allow",
+        "Resource": "*"
+      },
+      {
+        "Action": "elasticloadbalancing:*",
+        "Effect": "Allow",
+        "Resource": "*"
+      },
+      {
+        "Action": "cloudwatch:*",
+        "Effect": "Allow",
+        "Resource": "*"
+      },
+      {
+        "Action": "autoscaling:*",
+        "Effect": "Allow",
+        "Resource": "*"
+      }
+    ],
+    "Version": "2012-10-17"
+  },
+  "IsAttachable": true,
+  "IsDefaultVersion": true,
+  "Path": "/",
+  "PolicyId": "ANPAI3VAJF5ZCRZ7MCQE6",
+  "PolicyName": "AmazonEC2FullAccess",
+  "UpdateDate": "2015-02-06T18:40:15+00:00",
+  "VersionId": "v1"
+}
