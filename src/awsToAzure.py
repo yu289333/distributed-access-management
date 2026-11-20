@@ -136,8 +136,11 @@ def translate(aws_tree, *, name=None):
             'Resource ARNs are not translated to assignable scopes: '
             + ', '.join(non_wildcard))
 
+    candidate = aws_tree.get('name')
+    role_name = name or (candidate if candidate and candidate != 'Statement'
+                         else 'Translated AWS policy')
     role = {
-        'roleName': name or aws_tree.get('name') or 'Translated AWS policy',
+        'roleName': role_name,
         'description': 'Best-effort translation of an AWS IAM policy into an '
                        'Azure RBAC role definition (service-level action mapping).',
         'permissions': [{'actions': _dedupe(actions),
@@ -168,7 +171,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         source = args.file.read_text(encoding='utf-8-sig')
-        document, report = translate(parse_aws(source), name=args.name)
+        document, report = translate(parse_aws(source),
+                                     name=args.name or args.file.stem)
     except (OSError, TypeError, ValueError) as exc:
         parser.error(str(exc))
     print(json.dumps(document, indent=2))

@@ -20,6 +20,8 @@ class AwsToAzureTests(unittest.TestCase):
                                         'Microsoft.Insights/*/read'})
         self.assertEqual(report['unmapped'], [])
         self.assertEqual(report['warnings'], [])
+        default, _ = translate(tree)
+        self.assertEqual(default['roleName'], 'Translated AWS policy')
 
     def test_explicit_deny_becomes_not_actions_with_a_warning(self):
         policy = {'Statement': [
