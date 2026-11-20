@@ -23,6 +23,7 @@ The parsers and database writer are separate:
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
 | `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
+| `src/azurePolicyEmitter.py` | `emit_policy(tree)` (alias `emit_azure`) | Rebuild an Azure role or policy definition from an Azure policy tree. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
@@ -122,6 +123,26 @@ to the evaluator. This comparison describes the outcome; it does not execute it.
 and `not` maps to NOT in the tree.
 Locks, ARM deployment templates, initiatives, and assignments are not parsed.
 
+### Azure emitting
+
+`azurePolicyEmitter.emit_policy(tree)` (also exported as `emit_azure`) rebuilds
+the Azure document from a tree produced by `azurePolicyEntry.parse_policy` or
+read back from the database. It is the outbound half of the Azure morph; it does
+not turn AWS or GCP trees into Azure policies.
+
+Outer metadata (id, name, roleName or displayName, description, mode, parameters,
+assignableScopes) comes from the root's `condition_raw`. The permissions or
+`policyRule` are rebuilt from the tree, so edits to leaves are reflected. RBAC
+supports the REST (`properties.permissions`), flattened CLI (`permissions`), and
+PowerShell (`Actions`/`NotActions`/...) shapes, chosen from the raw document. For
+policy definitions, `if` becomes `allOf`/`anyOf`/`not` again and `then` is rebuilt
+from the effect and detail leaves.
+
+Every node must have `provider = 'Azure'`, and the tree must have the parser's
+shape. Canonicalized Azure trees are not accepted: canonicalization drops the
+`permissions` and `then` grouping labels the emitter uses. Locks, ARM templates,
+initiatives, and assignments are not emitted.
+
 ### GCP parsing
 
 GCP trees have `provider = 'GCP'` and
@@ -163,6 +184,13 @@ Rebuild an AWS policy from a tree saved by `--dry-run`:
 ```sh
 python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > tree.json
 python src/awsPolicyEmitter.py tree.json
+```
+
+Rebuild an Azure role or policy definition from a saved tree:
+
+```sh
+python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run > tree.json
+python src/azurePolicyEmitter.py tree.json
 ```
 
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
