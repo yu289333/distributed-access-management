@@ -1,0 +1,7 @@
+.git
+.venv
+.env
+.workbuddy
+__pycache__
+*.py[cod]
+examples/generated
