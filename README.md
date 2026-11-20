@@ -24,6 +24,7 @@ The parsers and database writer are separate:
 | `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/azurePolicyEmitter.py` | `emit_policy(tree)` (alias `emit_azure`) | Rebuild an Azure role or policy definition from an Azure policy tree. |
+| `src/awsToAzure.py` | `translate(tree)`, `translate_tree(tree)` | Best-effort translation of an AWS IAM policy into an Azure RBAC role. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
@@ -142,6 +143,33 @@ Every node must have `provider = 'Azure'`, and the tree must have the parser's
 shape. Canonicalized Azure trees are not accepted: canonicalization drops the
 `permissions` and `then` grouping labels the emitter uses. Locks, ARM templates,
 initiatives, and assignments are not emitted.
+
+### Cross-cloud translation (AWS → Azure)
+
+`awsToAzure.translate(tree)` maps an AWS policy tree to an Azure RBAC role
+definition and returns `(document, report)`; `translate_tree(tree)` returns the
+Azure tree instead, so the result still flows through the shared format. The AWS
+tree is first read back to a policy document (so edits to its leaves are
+reflected), the actions are mapped, and the Azure document is parsed into an
+Azure tree that `azurePolicyEmitter.emit_policy` reproduces.
+
+Mapping rules are deliberately small and explainable:
+
+- `service:Describe*`/`List*`/`Get*`/`Read*`/`View*` → `<namespace>/*/read`,
+  `Create*`/`Put*`/`Update*`/... → `<namespace>/*/write`, `Delete*`/`Remove*` →
+  `<namespace>/*/delete`, and `service:*` → `<namespace>/*`;
+- `Allow` actions become `actions`; `Deny` actions become `notActions`;
+- the namespace comes from a small service table (`ec2`, `s3`, `logs`, ...).
+
+The report lists unmapped actions, untranslated `Resource` ARNs, and every
+approximation. This is a starting point, not a proof of equivalence: the mapping
+is service-level, `notActions` is block-scoped (it does not override grants from
+other roles), and conditions, `NotAction`/`NotResource`, and principals are not
+translated.
+
+```sh
+python src/awsToAzure.py examples/aws-ec2-readonly.json --report
+```
 
 ### GCP parsing
 
