@@ -24,7 +24,7 @@ The parsers and database writer are separate:
 | `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
-| `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
+| `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
 The parsers accept a JSON string or Python dictionary and return an independent
 dictionary tree. Every node contains the columns `name`, `display_name`,
@@ -283,4 +283,6 @@ produces `assignableScopes == []`.
 
 Generated database-tree examples with actual local IDs and parent IDs are saved
 in `examples/generated/`. These are illustrative exports; new database imports
-generate their own IDs.
+generate their own IDs. `tests/test_generated_examples.py` parses the matching
+source examples and asserts that the result equals the export after
+`strip_database_ids()`, so the samples stay a checked golden reference.

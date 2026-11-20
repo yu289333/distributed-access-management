@@ -146,6 +146,21 @@ def _canonical(node, *, is_root):
     return node
 
 
+def strip_database_ids(tree):
+    """Return a copy of a database export without ``id`` and ``parent_id``.
+
+    ``examples/generated/*.json`` are exports of stored trees: every node also
+    carries the row's primary key and its parent's key. Those fields are not part
+    of the tree schema, so an export must be stripped before it can be
+    validated, compared with parser output, or re-imported.
+    """
+    node = {key: deepcopy(value) for key, value in tree.items()
+            if key not in ('id', 'parent_id')}
+    node['children'] = [strip_database_ids(child)
+                        for child in tree.get('children', [])]
+    return node
+
+
 def insert_policy_tree(cursor, tree, *, table='policy', schema=None, parent_id=None):
     """Insert without committing. The caller owns the transaction; return root ID."""
     validate_tree(tree)
@@ -183,15 +198,17 @@ def load_policy_tree(cursor, root_id, *, table='policy', schema=None):
 
     identifier = sql.Identifier(schema, table) if schema else sql.Identifier(table)
     columns = sql.SQL(', ').join(sql.Identifier(column) for column in COLUMNS)
+    child_columns = sql.SQL(', ').join(
+        sql.SQL('child.{}').format(sql.Identifier(column)) for column in COLUMNS)
     query = sql.SQL('''
         WITH RECURSIVE subtree AS (
             SELECT id, parent, {columns} FROM {table} WHERE id = %s
             UNION ALL
-            SELECT child.id, child.parent, {columns} FROM {table} AS child
+            SELECT child.id, child.parent, {child_columns} FROM {table} AS child
             JOIN subtree AS parent ON child.parent = parent.id
         )
         SELECT id, parent, {columns} FROM subtree ORDER BY id
-    ''').format(columns=columns, table=identifier)
+    ''').format(columns=columns, child_columns=child_columns, table=identifier)
     cursor.execute(query, (root_id,))
     rows = cursor.fetchall()
 
