@@ -211,6 +211,44 @@ python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run > tree.jso
 python src/gcpPolicyEmitter.py tree.json
 ```
 
+### Example policies
+
+| file | covers |
+| --- | --- |
+| `examples/aws-ec2-readonly.json` | four allow statements |
+| `examples/aws-mfa-mandated-policy.json` | allow, explicit deny, and an AWS `Condition` |
+| `examples/aws-secrets-readonly.json` | a concrete resource ARN |
+| `examples/aws-ec2-full-access-api.json` | the `Document` API-response wrapper |
+| `examples/aws-ec2-trust-policy.json` | a trust policy (Principal, no Resource) |
+| `examples/azure-audit-vm.json` | a policy definition with `then` details |
+| `examples/azure-classic-vm-role.json` | a REST role with assignable scopes |
+| `examples/azure-powershell-web-app.json` | the PowerShell `Actions` shape |
+| `examples/gcp-iam-bindings.json` | two bindings, one with an IAM condition |
+
+### Round trip each provider
+
+Each pair writes a tree and rebuilds the source document; the comparison is on
+parsed JSON, because the emitters reformat:
+
+```sh
+python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > aws-tree.json
+python src/awsPolicyEmitter.py aws-tree.json > aws-out.json
+python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run > azure-tree.json
+python src/azurePolicyEmitter.py azure-tree.json > azure-out.json
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run > gcp-tree.json
+python src/gcpPolicyEmitter.py gcp-tree.json > gcp-out.json
+
+python - <<'PY'
+import json
+pairs = [('examples/aws-ec2-readonly.json', 'aws-out.json'),
+         ('examples/azure-audit-vm.json', 'azure-out.json'),
+         ('examples/gcp-iam-bindings.json', 'gcp-out.json')]
+for source, rebuilt in pairs:
+    assert json.load(open(source)) == json.load(open(rebuilt)), rebuilt
+print('round trip exact')
+PY
+```
+
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
 PGPORT, PGDATABASE, PGUSER, and PGPASSWORD environment variables for the connection.
 `--name` overrides the policy name. Both `python src/awsPolicyEntry.py ...` and

@@ -2,10 +2,11 @@
 
 import json
 
-if __package__:
-    from .policyTree import load_document, make_node, run_cli, validate_tree
-else:
-    from policyTree import load_document, make_node, run_cli, validate_tree
+if not __package__:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.policyTree import load_document, make_node, run_cli, validate_tree
 
 
 def _check_binding(binding, index):
