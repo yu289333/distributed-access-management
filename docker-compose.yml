@@ -1,0 +1,49 @@
+# Local development stack: PostgreSQL with the policy schema, plus the HTTP
+# service that parses, stores, reads back, and emits policies.
+#
+#   docker compose up -d --build
+#   curl -s localhost:8080/healthz
+#   docker compose down          # add -v to drop the database volume
+#
+# The credentials are development-only. Do not reuse them anywhere else.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: jsonpolicies
+      POSTGRES_USER: policy
+      POSTGRES_PASSWORD: policy
+    volumes:
+      - ./db/policy.sql:/docker-entrypoint-initdb.d/001-policy.sql:ro
+      - policy-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U policy -d jsonpolicies"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://policy:policy@db:5432/jsonpolicies
+      PORT: "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  policy-data:
