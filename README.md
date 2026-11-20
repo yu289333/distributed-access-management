@@ -27,6 +27,7 @@ The parsers and database writer are separate:
 | `src/gcpPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_gcp`) | Rebuild a GCP IAM policy from a GCP policy tree. |
 | `src/morph.py` | `translate(tree, source='aws', target='azure')`, `register_target` | Decode a source tree into neutral atoms and encode a target. |
 | `src/vocabulary.py` | `atom(domain, verb)`, `DOMAINS`, `VERBS` | Provider-independent action atoms. |
+| `src/policyStatement.py` | `make_statement(effect, actions, resources, conditions, untranslated)` | Neutral statement produced by source adapters. |
 | `src/awsVocabulary.py`, `src/azureVocabulary.py` | `read`/`decode`, `encode`/`build` | Per-provider adapters; a new cloud adds one pair. |
 | `src/awsToAzure.py` | `translate(tree)`, `translate_tree(tree)` | Backward-compatible AWS → Azure API and CLI. |
 | `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
@@ -163,16 +164,25 @@ The translation is split into adapters, not one translator per pair:
 AWS action ──decode──▶ atom {domain, verb} ──encode──▶ Azure action
 ```
 
+- a source adapter returns neutral statements (`policyStatement`): effect,
+  provider action strings, resources, condition operator names, and the fields
+  it could not express;
 - `awsVocabulary.decode`: `ec2:Describe*` → `{compute, read}`; the service table
   maps `ec2`, `s3`, `logs`, ... to domains and the verb prefix maps to
   `read`/`write`/`delete`/`all`;
 - `azureVocabulary.encode`: `{compute, read}` → `Microsoft.Compute/*/read`;
-- `morph.translate` is the engine; `register_target()` adds a target adapter.
+- `morph.translate` is the engine; `register_source()` and `register_target()`
+  add adapter pairs at runtime.
 
 Adding a provider therefore adds one adapter pair (a source reader/decoder or a
 target encoder/builder), not a translator for every ordered pair: adapters grow
 with providers (2N) instead of with pairs (N(N−1)). Today only `aws → azure` is
 wired.
+
+One caveat: GCP IAM is binding-based (roles bound to members), not a list of
+actions. Using GCP as a cross-cloud *source* needs its predefined roles expanded
+to permissions first; the action-statement model does not cover that yet. GCP as
+a target can produce a custom role with `includedPermissions`.
 
 The report lists unmapped actions, untranslated `Resource` ARNs, and every
 approximation. This is a starting point, not a proof of equivalence: the mapping

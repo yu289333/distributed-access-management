@@ -43,6 +43,26 @@ class VocabularyTests(unittest.TestCase):
                          ['compute:read', 'network:read', 'monitoring:read'])
         self.assertEqual(report['unmapped'], [])
 
+    def test_a_new_source_only_needs_a_reader_and_decoder(self):
+        from src.policyStatement import make_statement
+
+        def demo_read(tree):
+            return [make_statement('allow', actions=['vm:read'], resources=['*'])]
+
+        def demo_decode(action):
+            return {'domain': 'compute', 'verb': 'read'}
+
+        morph.register_source('demo', demo_read, demo_decode)
+        try:
+            tree = parse_policy((ROOT / 'examples/aws-ec2-readonly.json').read_text())
+            document, report = morph.translate(tree, source='demo', name='demo')
+        finally:
+            morph.SOURCES.pop('demo', None)
+            morph.DECODERS.pop('demo', None)
+        self.assertEqual(document['permissions'][0]['actions'],
+                         ['Microsoft.Compute/*/read'])
+        self.assertEqual(report['unmapped'], [])
+
     def test_azure_target_is_unchanged(self):
         tree = parse_policy((ROOT / 'examples/aws-ec2-readonly.json').read_text())
         document, _ = morph.translate(tree, name='x')

@@ -1,12 +1,14 @@
 """Provider-neutral policy morph: decode a source, encode a target.
 
-The point of this module is the shape of the dependency graph. Adding a cloud
-means registering one adapter pair (read/decode for a source, encode/build for a
-target); it does not add a translator for every existing provider. Cross-cloud
-translation is then ``decode(A) -> atoms -> encode(B)``.
+The point of this module is the shape of the dependency graph. A source adapter
+reads its policy and returns neutral statements (``policyStatement``); the
+engine decodes their actions into neutral atoms and the target adapter encodes
+them. Adding a cloud means registering one adapter pair (reader + decoder for a
+source, encoder + builder for a target); it does not add a translator for every
+existing provider. Cross-cloud translation is ``read(A) -> atoms -> encode(B)``.
 
 Today only ``aws`` is a source and only ``azure`` is a target, but
-``register_target()`` and the ``SOURCES`` map are the extension points.
+``register_source()`` and ``register_target()`` are the extension points.
 """
 
 import json
@@ -18,11 +20,21 @@ if not __package__:
 from src import awsVocabulary, azureVocabulary
 from src.policyTree import validate_tree
 
-UNTRANSLATED_FIELDS = ('NotAction', 'NotResource', 'Principal', 'NotPrincipal')
-
 SOURCES = {'aws': awsVocabulary.read}
 DECODERS = {'aws': awsVocabulary.decode}
 TARGETS = {'azure': (azureVocabulary.encode, azureVocabulary.build)}
+
+
+def register_source(name, reader, decoder):
+    """Register a source adapter pair: tree -> neutral statements, action -> atom."""
+    if not isinstance(name, str) or not name:
+        raise ValueError('Source name must be nonempty text')
+    if name in SOURCES or name in DECODERS:
+        raise ValueError(f'Source already registered: {name}')
+    if not callable(reader) or not callable(decoder):
+        raise ValueError('Source reader and decoder must be callable')
+    SOURCES[name] = reader
+    DECODERS[name] = decoder
 
 
 def register_target(name, encoder, builder):
@@ -36,12 +48,6 @@ def register_target(name, encoder, builder):
     TARGETS[name] = (encoder, builder)
 
 
-def _values(value):
-    if value is None:
-        return []
-    return [value] if isinstance(value, str) else list(value)
-
-
 def _dedupe(values):
     seen, result = set(), []
     for value in values:
@@ -53,7 +59,7 @@ def _dedupe(values):
 
 def translate(tree, *, source='aws', target='azure', name=None):
     """Return ``(target_document, report)`` for a source policy tree."""
-    if source not in SOURCES:
+    if source not in SOURCES or source not in DECODERS:
         raise ValueError(f'Unsupported source: {source}')
     if target not in TARGETS:
         raise ValueError(f'Unsupported target: {target}')
@@ -65,24 +71,23 @@ def translate(tree, *, source='aws', target='azure', name=None):
     actions, not_actions = [], []
     report = {'mapped': {}, 'unmapped': [], 'warnings': [], 'resources': []}
     for statement in statements:
-        effect = statement['Effect']
-        for action in _values(statement.get('Action')):
+        effect = statement['effect']
+        for action in statement['actions']:
             neutral = decode(action)
             if neutral is None:
                 report['unmapped'].append(action)
                 continue
             encoded = encode(neutral)
             report['mapped'][action] = encoded
-            (actions if effect == 'Allow' else not_actions).append(encoded)
-        for field in UNTRANSLATED_FIELDS:
-            if field in statement:
-                report['unmapped'].extend(_values(statement[field]))
-                report['warnings'].append(f'{field} is not translated')
-        for resource in _values(statement.get('Resource')):
+            (actions if effect == 'allow' else not_actions).append(encoded)
+        for field, value in statement['untranslated']:
+            report['unmapped'].append(value)
+            report['warnings'].append(f'{field} is not translated')
+        for resource in statement['resources']:
             if resource not in report['resources']:
                 report['resources'].append(resource)
-        for operator in sorted(statement.get('Condition', {})):
-            report['warnings'].append(f'AWS condition {operator} is not translated')
+        for operator in statement['conditions']:
+            report['warnings'].append(f'condition {operator} is not translated')
 
     if not_actions:
         report['warnings'].append(
@@ -105,7 +110,7 @@ def translate_tree(tree, *, source='aws', target='azure', name=None):
     if target != 'azure':
         raise ValueError('translate_tree only rebuilds Azure trees')
     document, report = translate(tree, source=source, target=target, name=name)
-    from .azurePolicyEntry import parse_policy
+    from src.azurePolicyEntry import parse_policy
     result = parse_policy(json.dumps(document))
     validate_tree(result)
     return result, report
