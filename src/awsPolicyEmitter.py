@@ -116,19 +116,20 @@ def _original_shape(tree):
     """Recover outer metadata and statement order from the root's raw text."""
     raw = tree.get('condition_raw')
     if not raw:
-        return {}, []
+        return {}, [], False
     try:
         container = _statement_container(json.loads(raw))
     except ValueError:
-        return {}, []
+        return {}, [], False
     if container is None:
-        return {}, []
+        return {}, [], False
     metadata = {key: deepcopy(value) for key, value in container.items()
                 if key != 'Statement'}
     statements = container['Statement']
-    if isinstance(statements, dict):
+    single = isinstance(statements, dict)
+    if single:
         statements = [statements]
-    return metadata, statements if isinstance(statements, list) else []
+    return metadata, statements if isinstance(statements, list) else [], single
 
 
 def _key(statement):
@@ -174,9 +175,10 @@ def emit_policy(tree):
     nodes = list(allowed) + list(denied)
     statements = [_statement(node, index)
                   for index, node in enumerate(nodes, 1)]
-    metadata, original = _original_shape(tree)
+    metadata, original, single = _original_shape(tree)
     document = metadata
-    document['Statement'] = _restore_order(original, statements)
+    ordered = _restore_order(original, statements)
+    document['Statement'] = ordered[0] if single and len(ordered) == 1 else ordered
     return document
 
 

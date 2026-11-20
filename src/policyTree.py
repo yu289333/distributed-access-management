@@ -1,54 +1,31 @@
-"""Common policy-tree format, validation, and PostgreSQL persistence.
+"""Common policy-tree format, validation, and tree utilities.
 
 Each node is a dictionary of policy-table columns plus a children list. Database
 IDs and parent IDs are assigned on insertion. OR with no children is empty/false;
 AND with no children is universal/true. NOT always has exactly one child.
+
+Persistence lives in ``policyStore``, export in ``policyExport``, and the CLI in
+``policyCli``; the wrappers below keep the historical imports working.
 """
 
-import argparse
 from copy import deepcopy
 import json
-import os
-from pathlib import Path
 
 
 COLUMNS = ('name', 'display_name', 'comment', 'provider', 'provider_detail',
-           'operator', 'condition_raw', 'condition_cel', 'condition_json')
+           'operator', 'condition_raw', 'condition_cel', 'condition_json', 'condition_origin')
 OPERATORS = {'AND', 'OR', 'XOR', 'NOT'}
-
-
-def load_document(source):
-    """Return an independent JSON object; reject duplicates and non-JSON values."""
-    def unique(pairs):
-        result = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError(f'Duplicate JSON key: {key}')
-            result[key] = value
-        return result
-
-    def invalid_constant(value):
-        raise ValueError(f'Invalid JSON constant: {value}')
-
-    if isinstance(source, str):
-        document = json.loads(source, object_pairs_hook=unique,
-                              parse_constant=invalid_constant)
-    else:
-        document = deepcopy(source)
-    if not isinstance(document, dict):
-        raise ValueError('A policy document must be a JSON object')
-    json.dumps(document, allow_nan=False)
-    return document
 
 
 def make_node(name, provider, provider_detail, operator='AND', *, children=None,
               condition_json=None, condition_raw=None, condition_cel=None,
-              display_name=None, comment=None):
+              display_name=None, comment=None, condition_origin=None):
     """Construct a node using only column names from db/policy.sql."""
     return dict(name=name, display_name=display_name, comment=comment,
                 provider=provider, provider_detail=provider_detail,
                 operator=operator, condition_raw=condition_raw,
                 condition_cel=condition_cel, condition_json=condition_json,
+                condition_origin=condition_origin or ('json' if condition_json is not None else None),
                 children=list(children) if children is not None else [])
 
 
@@ -83,10 +60,33 @@ def validate_tree(tree):
             json.dumps(node.get('condition_json'), allow_nan=False)
         except (TypeError, ValueError) as exc:
             raise ValueError('condition_json must be JSON serializable') from exc
+        if node.get('condition_json') is not None and node.get('condition_raw') is not None:
+            from .conditionSource import normalize_condition
+            normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_origin'))
         for child in children:
             visit(child)
 
     visit(tree)
+
+
+# Compatibility imports: retain existing public APIs while implementations live
+# in focused modules. Lazy wrappers avoid circular dependencies.
+from .policyDocument import load_document
+
+
+def insert_policy_tree(*args, **kwargs):
+    from .policyStore import insert_policy_tree as implementation
+    return implementation(*args, **kwargs)
+
+
+def write_policy_tree(*args, **kwargs):
+    from .policyStore import write_policy_tree as implementation
+    return implementation(*args, **kwargs)
+
+
+def run_cli(*args, **kwargs):
+    from .policyCli import run_cli as implementation
+    return implementation(*args, **kwargs)
 
 
 def _has_expression(node):
@@ -131,7 +131,7 @@ def _canonical(node, *, is_root):
     for child in kept:
         # NOT is not associative: NOT(NOT x) is x, not NOT(x's children).
         if (not _has_expression(child) and child['operator'] == node['operator'] and
-                node['operator'] != 'NOT'):
+                node['operator'] != 'NOT' and child.get('condition_raw') is None):
             spliced.extend(child['children'])
         else:
             spliced.append(child)
@@ -161,115 +161,10 @@ def strip_database_ids(tree):
     return node
 
 
-def insert_policy_tree(cursor, tree, *, table='policy', schema=None, parent_id=None):
-    """Insert without committing. The caller owns the transaction; return root ID."""
-    validate_tree(tree)
-    from psycopg2 import sql
-    from psycopg2.extras import Json
+def load_policy_tree(connection, root_id):
+    """Read one policy tree back as a validated tree without database ids."""
+    from .policyExport import export_policy_tree
 
-    identifier = sql.Identifier(schema, table) if schema else sql.Identifier(table)
-    query = sql.SQL('''
-        INSERT INTO {} (parent, name, display_name, comment, provider,
-            provider_detail, operator, condition_raw, condition_cel, condition_json)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) RETURNING id
-    ''').format(identifier)
-
-    def insert(node, parent):
-        values = [node.get(key) for key in COLUMNS]
-        if values[-1] is not None:
-            values[-1] = Json(values[-1], dumps=lambda value: json.dumps(value, allow_nan=False))
-        cursor.execute(query, (parent, *values))
-        node_id = cursor.fetchone()[0]
-        for child in node.get('children', []):
-            insert(child, node_id)
-        return node_id
-
-    return insert(tree, parent_id)
-
-
-def load_policy_tree(cursor, root_id, *, table='policy', schema=None):
-    """Read one policy tree back from the database; return a fresh tree dict.
-
-    Rows are fetched with one recursive query and reassembled by ``parent``.
-    The result is validated, so a truncated or cyclic subtree raises instead of
-    returning a partial tree. The caller owns the transaction and the cursor.
-    """
-    from psycopg2 import sql
-
-    identifier = sql.Identifier(schema, table) if schema else sql.Identifier(table)
-    columns = sql.SQL(', ').join(sql.Identifier(column) for column in COLUMNS)
-    child_columns = sql.SQL(', ').join(
-        sql.SQL('child.{}').format(sql.Identifier(column)) for column in COLUMNS)
-    query = sql.SQL('''
-        WITH RECURSIVE subtree AS (
-            SELECT id, parent, {columns} FROM {table} WHERE id = %s
-            UNION ALL
-            SELECT child.id, child.parent, {child_columns} FROM {table} AS child
-            JOIN subtree AS parent ON child.parent = parent.id
-        )
-        SELECT id, parent, {columns} FROM subtree ORDER BY id
-    ''').format(columns=columns, child_columns=child_columns, table=identifier)
-    cursor.execute(query, (root_id,))
-    rows = cursor.fetchall()
-
-    nodes, children = {}, {}
-    for row in rows:
-        node_id, parent_id = row[0], row[1]
-        node = dict(zip(COLUMNS, row[2:]))
-        node['children'] = []
-        nodes[node_id] = node
-        children.setdefault(parent_id, []).append(node_id)
-    if root_id not in nodes:
-        raise ValueError(f'No policy row with id {root_id}')
-
-    def build(node_id, seen):
-        if node_id in seen:
-            raise ValueError('Policy rows contain a parent cycle')
-        seen.add(node_id)
-        node = nodes[node_id]
-        node['children'] = [build(child, seen)
-                            for child in children.get(node_id, [])]
-        return node
-
-    tree = build(root_id, set())
+    tree = strip_database_ids(export_policy_tree(connection, root_id))
     validate_tree(tree)
     return tree
-
-
-def write_policy_tree(connection, tree, *, table='policy', schema=None):
-    """Commit one whole tree, or roll it back on failure; return its root ID.
-
-    Use a dedicated connection: its current transaction is committed/rolled back.
-    This function leaves closing the connection to its caller.
-    """
-    validate_tree(tree)
-    if connection.autocommit:
-        raise ValueError('Policy imports require autocommit to be disabled')
-    with connection:
-        with connection.cursor() as cursor:
-            return insert_policy_tree(cursor, tree, table=table, schema=schema)
-
-
-def run_cli(parse_policy, argv=None):
-    """Shared command-line runner used by both provider entry modules."""
-    parser = argparse.ArgumentParser(description=parse_policy.__doc__)
-    parser.add_argument('file', type=Path, help='One JSON policy document')
-    parser.add_argument('--name', help='Override the policy name')
-    parser.add_argument('--dry-run', action='store_true', help='Print the tree without a database')
-    args = parser.parse_args(argv)
-    try:
-        tree = parse_policy(args.file.read_text(encoding='utf-8-sig'), name=args.name)
-        validate_tree(tree)
-    except (OSError, TypeError, ValueError) as exc:
-        parser.error(str(exc))
-    if args.dry_run:
-        print(json.dumps(tree, indent=2))
-        return 0
-    import psycopg2
-    connection = psycopg2.connect(os.environ.get('DATABASE_URL', ''))
-    try:
-        root_id = write_policy_tree(connection, tree)
-    finally:
-        connection.close()
-    print(f'Stored {tree["name"]!r} with root ID {root_id}')
-    return 0

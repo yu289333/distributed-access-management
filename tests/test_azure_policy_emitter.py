@@ -36,7 +36,9 @@ class AzureEmitterTests(unittest.TestCase):
     def test_rbac_edits_are_reflected(self):
         tree = parse_policy((ROOT / 'examples/azure-classic-vm-role.json').read_text())
         actions = tree['children'][0]['children'][0]['children'][0]['children'][0]
-        actions['children'][0]['condition_json']['actions'] = ['Microsoft.Foo/read']
+        leaf = actions['children'][0]
+        leaf['condition_json']['actions'] = ['Microsoft.Foo/read']
+        leaf['condition_raw'] = None
         document = emit_policy(tree)
         self.assertEqual(document['permissions'][0]['actions'][0], 'Microsoft.Foo/read')
 
@@ -44,6 +46,7 @@ class AzureEmitterTests(unittest.TestCase):
         tree = parse_policy((ROOT / 'examples/azure-audit-vm.json').read_text())
         effect = tree['children'][1]['children'][0]
         effect['condition_json']['effect'] = 'deny'
+        effect['condition_raw'] = None
         document = emit_policy(tree)
         self.assertEqual(document['policyRule']['then']['effect'], 'deny')
 

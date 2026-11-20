@@ -284,30 +284,84 @@ python -m unittest discover -s tests -v
 ```
 
 
-### Condition expression output
+### Condition source formats and module layout
 
-AWS leaves use executable CEL predicates over `request`, `context`, and the
-regex-safe `regex_context` supplied by `cel_activation`. Unsupported AWS syntax
-is retained with an explicit conversion note rather than silently approximated.
+`provider` and `provider_detail` identify policy language and dialect, not its
+serialization. `condition_origin` identifies the input format (`json`, `cel`, or
+an explicitly registered future format). No database default guesses JSON for
+unknown records. Existing formats must be verified before assigning an origin.
 
-Azure policy definition leaves preserve the original field alias verbatim:
+For a condition leaf, populated raw, JSON and expression columns describe the
+same source condition. JSON-origin text inputs retain exact input fragments in
+`condition_raw`, including whitespace and escaping. A raw fragment can be a JSON
+object or an object member such as `"Action" : [ "read", "write" ]`. The matching
+`condition_json` is `{"Action": ["read", "write"]}` and `condition_cel` is
+`Action == ["read", "write"]`. Conflicting raw/JSON representations are rejected.
+The converter preserves the raw source; it does not replace it with generated
+JSON or CEL. Python dict inputs have no original lexical text, so raw leaf text
+is NULL rather than invented. Their root/group context may use a JSON
+serialization of that object. Root raw text continues to retain the complete
+input policy; group source is context, not a separate leaf predicate.
 
-```text
-Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true
+Azure array fields stay intact in one leaf so their raw fragments can come from
+the input. Older stored trees keep their IDs and structure; transformed leaves
+without an exact source fragment retain NULL raw rather than claiming generated
+text is original. Their JSON and expressions remain usable.
+
+Fresh databases use `db/policy.sql`. Apply this additive migration to existing
+ones (it is safe to repeat):
+
+```sh
+psql -v ON_ERROR_STOP=1 -1 -f db/migrations/001_condition_origin.sql
 ```
 
-This requested human-readable format is stored in `condition_cel`, but qualified
-aliases containing `/` are not valid CEL variable names. An evaluator adapter
-must resolve these aliases before evaluation. No namespace is stripped and no
-`resource.` prefix is added. Parent NOT nodes retain negation in the tree.
-Metadata leaves also receive expressions, such as `effect == "audit"`,
-`severity == "Critical"`, `name == "Virtual Machines without encryption enabled"`,
-and `message == "..."`. Strings are JSON-escaped. Metadata comparisons describe
-outcomes; they do not execute them. Every JSON leaf in the Azure audit example
-has an expression; grouping nodes retain NULL. Azure RBAC permission leaves use their original JSON keys and list equality,
-for example `dataActions == ["Microsoft.AppPlatform/Spring/eurekaService/read"]`.
-No `request` variables, wildcard expansion, or case normalization are introduced.
-These compare stored values; they do not evaluate matching authorization requests.
+Shared modules are separated by responsibility:
+
+| Module | Responsibility |
+| --- | --- |
+| `policyDocument.py` | Strict JSON document loading |
+| `conditionSource.py` | Original text, origin formats, format adapter registration |
+| `conditionFormat.py` | Literal/comparison formatting |
+| `awsCondition.py`, `azureCondition.py` | Provider-specific condition rendering |
+| `conditionExpression.py` | Source-to-expression dispatch and leaf population |
+| `policyTree.py` | Nodes and validation |
+| `policyStore.py` | Database inserts and transactions |
+| `policyExport.py` | Database trees with IDs and parent IDs |
+| `policyCli.py` | Shared parser CLI |
+| `convertConditions.py` | Convert stored leaf conditions |
+
+The provider entry modules compose these helpers. Existing `policyTree` public
+imports and `conditionCel.py` remain compatibility facades. The former
+`backfillCel.py` command is a deprecated wrapper around `convertConditions.py`.
+
+```sh
+python -m src.convertConditions                 # preview missing conversions
+python -m src.convertConditions --apply         # atomic conversion
+python -m src.convertConditions --replace       # preview recomputing existing expressions
+python -m src.convertConditions --replace --apply
+```
+
+Conversion prefers the decoded original source and verifies any JSON alternative
+against it. When only JSON is available, it uses that. Successful conversions
+also retain normalized JSON and format metadata where known; unsupported formats
+or mismatches abort the transaction. `condition_raw` is never rewritten by this
+command. New formats use `register_condition_format(name, decoder)` with a decoder
+returning the same condition object as the JSON representation. Native CEL raw
+text with `condition_origin='cel'` can pass through without inventing JSON. YAML
+and other formats are not yet implemented, and never guessed from the provider.
+
+AWS fields and Azure RBAC fields compare their original values, preserving case,
+arrays and nested objects. Examples are `Effect == "Allow"`, `Resource == "*"`,
+`dataActions == ["Microsoft.AppPlatform/Spring/eurekaService/read"]` and
+`assignableScopes == ["/", "/abc"]`. List equality includes item order. No request
+variables or wildcard expansion are introduced; these describe source values,
+not effective authorization decisions. NOT remains in the tree.
+
+Azure `field`/`equals` preserves the field alias verbatim, for example
+`Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true`.
+As previously requested, aliases containing `/` are readable expressions requiring
+an adapter before standard CEL evaluation. Metadata leaves such as effect,
+severity, name and message also receive source-preserving comparisons.
 
 Install test dependencies and run checks:
 
@@ -316,8 +370,8 @@ python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 ```
 
-Optional PostgreSQL tests run when DATABASE_URL is set. To start the prepared
-local database and select its connection in the current shell:
+PostgreSQL integration tests run when DATABASE_URL is set. In the prepared cloud
+workspace:
 
 ```sh
 bash /workspace/.onboarding/start.sh
@@ -342,3 +396,7 @@ in `examples/generated/`. These are illustrative exports; new database imports
 generate their own IDs. `tests/test_generated_examples.py` parses the matching
 source examples and asserts that the result equals the export after
 `strip_database_ids()`, so the samples stay a checked golden reference.
+
+Generated exports are in `examples/generated/`. They include actual local IDs;
+fresh imports generate their own IDs. Existing snapshots retain the older tree
+structure, while new parses keep complete Azure permission arrays together.

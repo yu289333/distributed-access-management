@@ -40,7 +40,10 @@ class AwsEmitterTests(unittest.TestCase):
             with self.subTest(source=source):
                 original = deepcopy(source)
                 document = emit_policy(parse_policy(source))
-                self.assertCountEqual(document['Statement'], source_statements(source))
+                statements = document['Statement']
+                if isinstance(statements, dict):
+                    statements = [statements]
+                self.assertCountEqual(statements, source_statements(source))
                 self.assertEqual(source, original)
                 validate_tree(parse_policy(document))
 
@@ -90,7 +93,7 @@ class AwsEmitterTests(unittest.TestCase):
     def test_deny_only_policy_round_trips(self):
         source = {'Statement': {'Effect': 'Deny', 'Action': '*', 'Resource': '*'}}
         document = emit_policy(parse_policy(source))
-        self.assertEqual(document['Statement'], [source['Statement']])
+        self.assertEqual(document['Statement'], source['Statement'])
         self.assertFalse(evaluate(parse_policy(document), lambda s: True))
 
     def test_api_wrappers_are_normalised(self):

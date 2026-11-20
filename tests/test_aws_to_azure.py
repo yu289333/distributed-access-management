@@ -64,6 +64,7 @@ class AwsToAzureTests(unittest.TestCase):
         first = tree['children'][0]['children']
         action = next(child for child in first if 'Action' in child['condition_json'])
         action['condition_json']['Action'] = 's3:GetObject'
+        action['condition_raw'] = None
         document, _ = translate(tree)
         self.assertIn('Microsoft.Storage/*/read', document['permissions'][0]['actions'])
 
