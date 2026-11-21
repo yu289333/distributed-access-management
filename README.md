@@ -10,8 +10,8 @@ The patent pending technology is to morph the access policies in AWS format to t
 ## Directory structure
 - /db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
 - /lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
-- /src contains AWS/Azure parsers and a shared PostgreSQL policy-tree writer.
-- /examples contains standalone JSON policies for use with the parsers.
+- /src contains AWS, Azure, and GCP parsers, the AWS emitter, and the shared tree writer.
+- /examples contains standalone JSON policies for use with the parsers; /examples/sketches holds the non-JSON row diagrams.
 - /tests contains parser, tree-validation, and persistence regression tests.
 
 ## Policy entry modules
@@ -21,10 +21,14 @@ The parsers and database writer are separate:
 | Module | Public API | Purpose |
 | --- | --- | --- |
 | `src/awsPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='arn:aws')` | Parse an AWS IAM policy document. |
+| `src/awsPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_aws`) | Rebuild an AWS IAM policy document from an AWS policy tree. |
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
-| `src/policyTree.py` | `make_node`, `validate_tree`, `insert_policy_tree`, `write_policy_tree` | Construct, validate, and persist either provider's tree. |
+| `src/azurePolicyEmitter.py` | `emit_policy(tree)` (alias `emit_azure`) | Rebuild an Azure role or policy definition from an Azure policy tree. |
+| `src/gcpPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_gcp`) | Rebuild a GCP IAM policy from a GCP policy tree. |
+| `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
+| `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
-Both parsers accept a JSON string or Python dictionary and return an independent
+The parsers accept a JSON string or Python dictionary and return an independent
 dictionary tree. Every node contains the columns `name`, `display_name`,
 `comment`, `provider`, `provider_detail`, `operator`, `condition_raw`,
 `condition_cel`, and `condition_json`, plus a `children` list. The writer generates
@@ -69,6 +73,25 @@ requires AWS-aware interpretation of the JSON; Effect and Sid are metadata,
 not ordinary matching predicates. This is a representation of one policy's
 grants, not an effective-permissions evaluator across AWS policies or SCPs.
 
+### AWS emitting
+
+`awsPolicyEmitter.emit_policy(tree)` (also exported as `emit_aws`) rebuilds an
+AWS IAM policy document from a tree produced by `awsPolicyEntry.parse_policy`,
+from a canonicalized version of it, or from the same tree read back from the
+database. It is the outbound half of the AWS morph; it does not turn Azure or
+GCP trees into AWS policies.
+
+Statements are emitted verbatim from each leaf's `condition_json`, so this
+round trip needs no `condition_cel` translation and never sets that column.
+Every node must have `provider = 'AWS'`, and the tree must have the shape the
+AWS parser produces; other shapes are rejected. Canonicalization may collapse a
+one-statement allow or deny group to a leaf, which is accepted. `Document`,
+`PolicyDocument`, and `PolicyVersion.Document` wrappers are normalised to a
+top-level policy, and outer fields such as `Version` and `Id` are recovered from
+the root's `condition_raw`. Statement order is restored by exact content, then by
+`Sid`, so statements edited in the tree keep their original slot. Without
+`condition_raw` the tree order is used (allows before explicit denies).
+
 ### Azure parsing
 
 Azure trees have `provider = 'Azure'`. The parser recognizes REST role definitions
@@ -101,6 +124,54 @@ to the evaluator. This comparison describes the outcome; it does not execute it.
 and `not` maps to NOT in the tree.
 Locks, ARM deployment templates, initiatives, and assignments are not parsed.
 
+### Azure emitting
+
+`azurePolicyEmitter.emit_policy(tree)` (also exported as `emit_azure`) rebuilds
+the Azure document from a tree produced by `azurePolicyEntry.parse_policy` or
+read back from the database. It is the outbound half of the Azure morph; it does
+not turn AWS or GCP trees into Azure policies.
+
+Outer metadata (id, name, roleName or displayName, description, mode, parameters,
+assignableScopes) comes from the root's `condition_raw`. The permissions or
+`policyRule` are rebuilt from the tree, so edits to leaves are reflected. RBAC
+supports the REST (`properties.permissions`), flattened CLI (`permissions`), and
+PowerShell (`Actions`/`NotActions`/...) shapes, chosen from the raw document. For
+policy definitions, `if` becomes `allOf`/`anyOf`/`not` again and `then` is rebuilt
+from the effect and detail leaves.
+
+Every node must have `provider = 'Azure'`, and the tree must have the parser's
+shape. Canonicalized Azure trees are not accepted: canonicalization drops the
+`permissions` and `then` grouping labels the emitter uses. Locks, ARM templates,
+initiatives, and assignments are not emitted.
+
+### GCP parsing
+
+GCP trees have `provider = 'GCP'` and
+`provider_detail = 'iam.googleapis.com'`; set `provider_detail` to record a
+different IAM API namespace. The parser accepts a policy object as returned by
+`getIamPolicy`, optionally wrapped in a `policy` field, with a nonempty
+`bindings` array.
+
+Bindings are unioned. Each binding is an AND of one `role` leaf, an OR of its
+`members` leaves, and, when present, one `IAM condition` leaf. Each binding's
+original JSON is preserved in its `condition_raw`; the root's `condition_raw`
+preserves the full input, including `version`, `etag`, and `auditConfigs`.
+
+IAM Conditions are kept as native JSON: the CEL `expression` text is stored
+unchanged and is not parsed, translated, or written to `condition_cel`, which
+remains NULL. Deny policies, principal access boundary policies, and the
+contents of `auditConfigs` are not parsed.
+
+### GCP emitting
+
+`gcpPolicyEmitter.emit_policy(tree)` (also exported as `emit_gcp`) rebuilds the
+GCP IAM policy from a tree produced by `gcpPolicyEntry.parse_policy` or read back
+from the database. Bindings are rebuilt from the role, members, and optional IAM
+condition leaves, so edits are reflected; `version` and `etag` come from the
+root's `condition_raw`. Every node must have `provider = 'GCP'`. It is the
+outbound half of the GCP morph; it does not turn AWS or Azure trees into GCP
+policies.
+
 ### Usage
 
 Install the database dependency and create the schema in a new PostgreSQL database:
@@ -116,12 +187,73 @@ Preview a tree without connecting to a database:
 python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run
 python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run
 python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run
+```
+
+Rebuild an AWS policy from a tree saved by `--dry-run`:
+
+```sh
+python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > tree.json
+python src/awsPolicyEmitter.py tree.json
+```
+
+Rebuild an Azure role or policy definition from a saved tree:
+
+```sh
+python src/azurePolicyEntry.py examples/azure-classic-vm-role.json --dry-run > tree.json
+python src/azurePolicyEmitter.py tree.json
+```
+
+Rebuild a GCP policy from a saved tree:
+
+```sh
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run > tree.json
+python src/gcpPolicyEmitter.py tree.json
+```
+
+### Example policies
+
+| file | covers |
+| --- | --- |
+| `examples/aws-ec2-readonly.json` | four allow statements |
+| `examples/aws-mfa-mandated-policy.json` | allow, explicit deny, and an AWS `Condition` |
+| `examples/aws-secrets-readonly.json` | a concrete resource ARN |
+| `examples/aws-ec2-full-access-api.json` | the `Document` API-response wrapper |
+| `examples/aws-ec2-trust-policy.json` | a trust policy (Principal, no Resource) |
+| `examples/azure-audit-vm.json` | a policy definition with `then` details |
+| `examples/azure-classic-vm-role.json` | a REST role with assignable scopes |
+| `examples/azure-powershell-web-app.json` | the PowerShell `Actions` shape |
+| `examples/gcp-iam-bindings.json` | two bindings, one with an IAM condition |
+
+### Round trip each provider
+
+Each pair writes a tree and rebuilds the source document; the comparison is on
+parsed JSON, because the emitters reformat:
+
+```sh
+python src/awsPolicyEntry.py examples/aws-ec2-readonly.json --dry-run > aws-tree.json
+python src/awsPolicyEmitter.py aws-tree.json > aws-out.json
+python src/azurePolicyEntry.py examples/azure-audit-vm.json --dry-run > azure-tree.json
+python src/azurePolicyEmitter.py azure-tree.json > azure-out.json
+python src/gcpPolicyEntry.py examples/gcp-iam-bindings.json --dry-run > gcp-tree.json
+python src/gcpPolicyEmitter.py gcp-tree.json > gcp-out.json
+
+python - <<'PY'
+import json
+pairs = [('examples/aws-ec2-readonly.json', 'aws-out.json'),
+         ('examples/azure-audit-vm.json', 'azure-out.json'),
+         ('examples/gcp-iam-bindings.json', 'gcp-out.json')]
+for source, rebuilt in pairs:
+    assert json.load(open(source)) == json.load(open(rebuilt)), rebuilt
+print('round trip exact')
+PY
 ```
 
 Remove `--dry-run` to insert the tree. Use `DATABASE_URL` or libpq's PGHOST,
 PGPORT, PGDATABASE, PGUSER, and PGPASSWORD environment variables for the connection.
 `--name` overrides the policy name. Both `python src/awsPolicyEntry.py ...` and
-`python -m src.awsPolicyEntry ...` are supported, likewise for Azure.
+`python -m src.awsPolicyEntry ...` are supported, likewise for the Azure and GCP
+entry modules.
 
 For programmatic use from the project root:
 
@@ -140,9 +272,10 @@ finally:
     connection.close()
 ```
 
-Use `azurePolicyEntry.parse_policy` with the same writer for Azure. The parsers
-and dry runs work without psycopg2 installed. Module imports have no printing,
-network, or database side effects.
+Use `azurePolicyEntry.parse_policy` or `gcpPolicyEntry.parse_policy` with the
+same writer for the other providers. The AWS emitter is pure Python and needs no
+database. The parsers, the emitter, and dry runs work without psycopg2
+installed. Module imports have no printing, network, or database side effects.
 
 `write_policy_tree` uses one transaction and returns the root row ID. It rolls
 back the whole tree on an insertion failure. Use a dedicated connection with
@@ -151,6 +284,25 @@ transaction. `insert_policy_tree(cursor, tree)` leaves transaction ownership to
 the caller. Both accept optional `table` and `schema` arguments, quoted as SQL
 identifiers. Each call inserts a new tree; no schema migration or deduplication
 is performed.
+
+`load_policy_tree(cursor, root_id)` reverses the write: one recursive query
+fetches the subtree and the rows are reassembled by `parent`. The result is
+validated, so a truncated or cyclic subtree raises instead of returning a
+partial tree. The caller owns the cursor and the transaction.
+
+`canonicalize(tree)` returns a reduced copy of a validated tree without changing
+its meaning. It splices grouping children that repeat their parent's operator,
+removes `NOT(NOT x)` and neutral empty groups, and collapses single-child
+grouping nodes. Leaf expressions are never touched, so any truth assignment to
+the leaves evaluates the same before and after. Labels and per-node
+`condition_raw` text of eliminated nodes are dropped; the root keeps its own
+`condition_raw`, so an AWS tree still emits. Use the canonical form for
+comparison or for the "Optimized" node-count claim, not as a replacement for the
+lossless tree.
+
+The two hand-drawn row layouts under `examples/sketches/` are documentation, not
+parsed input: they use unquoted keys and nested blocks without keys, so they are
+not JSON.
 
 Run the regression tests (CEL runtime is a development dependency):
 
@@ -254,6 +406,24 @@ bash /workspace/.onboarding/start.sh
 source /workspace/.onboarding/env.sh
 cd /workspace/distributed-access-management
 ```
+
+To fill missing expressions on existing leaf rows, use
+`python -m src.backfillCel` to preview and `python -m src.backfillCel --apply`
+to apply atomically. Existing non-NULL expressions are preserved, and unsupported
+sources abort the transaction. The cloud workspace must be connected; the
+startup helper starts PostgreSQL, not an offline cloud machine.
+
+Assignable scopes are retained together in one leaf directly under the role
+root. They use CEL list equality: `assignableScopes == ["/", "/abc"]`.
+The evaluator must supply `assignableScopes` as a list. Equality compares the
+complete list, including item order; it is not a membership check. An empty list
+produces `assignableScopes == []`.
+
+Generated database-tree examples with actual local IDs and parent IDs are saved
+in `examples/generated/`. These are illustrative exports; new database imports
+generate their own IDs. `tests/test_generated_examples.py` parses the matching
+source examples and asserts that the result equals the export after
+`strip_database_ids()`, so the samples stay a checked golden reference.
 
 Generated exports are in `examples/generated/`. They include actual local IDs;
 fresh imports generate their own IDs. Existing snapshots retain the older tree
