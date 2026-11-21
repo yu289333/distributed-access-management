@@ -428,3 +428,43 @@ source examples and asserts that the result equals the export after
 Generated exports are in `examples/generated/`. They include actual local IDs;
 fresh imports generate their own IDs. Existing snapshots retain the older tree
 structure, while new parses keep complete Azure permission arrays together.
+## Local deployment (Docker)
+
+`docker compose up` starts PostgreSQL 16 (schema from `db/policy.sql` applied on
+first boot) and the HTTP service on port 8080:
+
+```sh
+docker compose up -d --build
+curl -s localhost:8080/healthz
+```
+
+Store a policy and read it back:
+
+```sh
+curl -s -X POST 'localhost:8080/policies?provider=aws&name=ec2-readonly' \
+  --data-binary @examples/aws-ec2-readonly.json
+# {"id": 1, "provider": "AWS", "name": "ec2-readonly", "nodes": 17}
+
+curl -s localhost:8080/policies/1                  # tree, plus the emitted AWS document
+curl -s 'localhost:8080/policies/1?canonical=1'    # reduced tree
+```
+
+`POST /policies?provider=aws|azure|gcp[&name=...][&canonical=1]` parses and
+stores one document. `GET /policies/<id>` loads it back and, for AWS and Azure
+trees, includes the rebuilt policy document. `GET /healthz` checks the database.
+
+The service has no authentication and the compose credentials are
+development-only; bind it to localhost or a private network. The database lives
+in the `policy-data` volume: `docker compose down` keeps it, while
+`docker compose down -v` drops the schema and data so the init script runs again.
+
+Run the tests against the same database with:
+
+```sh
+DATABASE_URL=postgresql://policy:policy@localhost:5432/jsonpolicies \
+  python -m unittest discover -s tests -v
+```
+
+CI runs the same suite against a `postgres:16` service container
+(`.github/workflows/tests.yml`), so the database-backed tests do not depend on a
+local Docker installation.

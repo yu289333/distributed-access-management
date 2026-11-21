@@ -1,0 +1,46 @@
+name: tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jsonpolicies
+          POSTGRES_USER: policy
+          POSTGRES_PASSWORD: policy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U policy -d jsonpolicies"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql://policy:policy@localhost:5432/jsonpolicies
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Create the policy schema
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg2
+          with open('db/policy.sql', encoding='utf-8') as handle:
+              script = handle.read()
+          with psycopg2.connect(os.environ['DATABASE_URL']) as connection:
+              with connection.cursor() as cursor:
+                  cursor.execute(script)
+          PY
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
