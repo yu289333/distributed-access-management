@@ -25,15 +25,13 @@ def evaluate(tree, predicate):
     if tree.get('condition_json') is not None:
         return predicate(tree['condition_json'])
     values = [evaluate(child, predicate) for child in tree['children']]
-    if tree['operator'] == 'AND':
+    if tree['operator_onChildren'] == 'AND':
         return all(values)
-    if tree['operator'] == 'OR':
+    if tree['operator_onChildren'] == 'OR':
         return any(values)
-    if tree['operator'] == 'NOT':
+    if tree['operator_onChildren'] == 'NOT':
         return not values[0]
-    if tree['operator'] == 'XOR':
-        return sum(values) % 2 == 1
-    raise AssertionError(tree['operator'])
+    raise AssertionError(tree['operator_onChildren'])
 
 
 class RecordingCursor:

@@ -26,13 +26,10 @@ class AwsParserTests(unittest.TestCase):
                 self.assertEqual(source, original)
                 self.assertTrue(all(node['provider'] == 'AWS' for node in walk(tree)))
 
-    def test_deny_example_uses_the_exclusion_shape(self):
+    def test_mixed_policy_keeps_statement_groups_under_one_or(self):
         tree = parse_policy((ROOT / 'examples/aws-mfa-mandated-policy.json').read_text())
-        self.assertEqual(tree['operator'], 'AND')
-        allowed, excluded = tree['children']
-        self.assertEqual(allowed['operator'], 'OR')
-        self.assertEqual(excluded['operator'], 'NOT')
-        self.assertEqual(excluded['children'][0]['operator'], 'OR')
+        self.assertEqual(tree['operator_onChildren'], 'OR')
+        self.assertTrue(all(group['operator_onChildren'] == 'AND' for group in tree['children']))
         statements = [node['condition_json'] for node in walk(tree)
                       if node['condition_json'] is not None]
         self.assertTrue(any('Condition' in statement for statement in statements))
@@ -57,13 +54,13 @@ class AwsParserTests(unittest.TestCase):
 
     def test_additional_aws_documentation_structures(self):
         cases = {
-            'aws-s3-deny-except-bucket.json': ('AND', 2),
-            'aws-deny-outside-regions.json': ('AND', 1),
-            'aws-deny-outside-ip-ranges.json': ('AND', 1),
-            'aws-create-user-with-tags.json': ('OR', 1),
-            'aws-ec2-trust-policy.json': ('OR', 1),
+            'aws-s3-deny-except-bucket.json': 2,
+            'aws-deny-outside-regions.json': 1,
+            'aws-deny-outside-ip-ranges.json': 1,
+            'aws-create-user-with-tags.json': 1,
+            'aws-ec2-trust-policy.json': 1,
         }
-        for filename, (operator, statement_count) in cases.items():
+        for filename, statement_count in cases.items():
             with self.subTest(filename=filename):
                 raw = (ROOT / 'examples' / filename).read_text()
                 source = json.loads(raw)
@@ -71,12 +68,14 @@ class AwsParserTests(unittest.TestCase):
                 statements = statements if isinstance(statements, list) else [statements]
                 self.assertEqual(len(statements), statement_count)
                 tree = parse_policy(raw)
-                self.assertEqual(tree['operator'], operator)
-                actual = [node['condition_json'] for node in walk(tree)
-                          if node['condition_json'] is not None]
-                expected = [{key: value} for statement in statements
-                            for key, value in statement.items() if key != 'Sid']
-                self.assertCountEqual(actual, expected)
+                self.assertEqual(tree['operator_onChildren'], 'OR')
+                self.assertEqual(len(tree['children']), statement_count)
+                for group, statement in zip(tree['children'], statements):
+                    self.assertEqual(group['operator_onChildren'], 'AND')
+                    self.assertEqual(group['effect'], statement['Effect'].lower())
+                    self.assertEqual([leaf['condition_json'] for leaf in group['children']],
+                                     [{key: value} for key, value in statement.items() if key != 'Sid'])
+                    self.assertTrue(all(not leaf['children'] for leaf in group['children']))
                 self.assertEqual(tree['condition_raw'], raw)
                 for node in walk(tree):
                     if node['condition_json'] is not None:
@@ -89,21 +88,6 @@ class AwsParserTests(unittest.TestCase):
                          if n['condition_json'] and 'Condition' in n['condition_json'])
         self.assertIn('ForAllValues:StringEquals', condition)
         self.assertIn('StringEqualsIfExists', condition)
-
-    def test_explicit_deny_overrides_allow(self):
-        tree = parse_policy({'Statement': [
-            {'Sid': 'allow', 'Effect': 'Allow', 'Action': '*', 'Resource': '*'},
-            {'Sid': 'deny', 'Effect': 'Deny', 'NotAction': 'iam:*', 'Resource': '*',
-             'Condition': {'BoolIfExists': {'aws:MultiFactorAuthPresent': 'false'}}}]})
-        for matched, expected in [(set(), False), ({'allow'}, True),
-                                  ({'deny'}, False), ({'allow', 'deny'}, False)]:
-            self.assertEqual(evaluate(tree, lambda s: ('allow' in matched if 'Action' in s else
-                                                      'deny' in matched if 'NotAction' in s else True)), expected)
-
-    def test_deny_only_never_grants(self):
-        tree = parse_policy({'Statement': {'Effect': 'Deny', 'Action': '*', 'Resource': '*'}})
-        self.assertFalse(evaluate(tree, lambda s: True))
-        self.assertFalse(evaluate(tree, lambda s: False))
 
     def test_trust_and_resource_policies(self):
         for statement in [
@@ -121,11 +105,11 @@ class AwsParserTests(unittest.TestCase):
         tree = parse_policy(raw)
         self.assertEqual(tree['name'], 'Statement')
         self.assertEqual(tree['display_name'], '"Version": "2012-10-17"')
-        self.assertEqual(tree['operator'], 'OR')
+        self.assertEqual(tree['operator_onChildren'], 'OR')
         self.assertEqual(tree['condition_raw'], raw)
         self.assertEqual(len(list(walk(tree))), 17)
         for group, statement in zip(tree['children'], json.loads(raw)['Statement']):
-            self.assertEqual(group['operator'], 'AND')
+            self.assertEqual(group['operator_onChildren'], 'AND')
             self.assertIsNone(group['condition_json'])
             self.assertEqual([child['condition_json'] for child in group['children']],
                              [{key: value} for key, value in statement.items()])

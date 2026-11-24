@@ -19,13 +19,13 @@ def convert_conditions(connection, apply=False, replace=False):
             if apply:
                 cursor.execute('LOCK TABLE policy IN SHARE ROW EXCLUSIVE MODE')
             filter_clause = '' if replace else 'condition_cel IS NULL AND '
-            cursor.execute('''SELECT id, name, provider, provider_detail, operator,
-                                     condition_json, condition_raw, condition_origin
+            cursor.execute('''SELECT id, name, provider, provider_detail, "operator_onChildren",
+                                     condition_json, condition_raw, condition_raw_type
                               FROM policy p WHERE ''' + filter_clause + '''NOT EXISTS (SELECT 1 FROM policy c WHERE c.parent=p.id)
                               ORDER BY id''')
             for row_id, name, provider, detail, operator, expression, raw, origin in cursor.fetchall():
                 node = make_node(name, provider, detail, operator,
-                                 condition_json=expression, condition_raw=raw, condition_origin=origin)
+                                 condition_json=expression, condition_raw=raw, condition_raw_type=origin)
                 populate_condition_cel(node)
                 if node['condition_cel'] is None:
                     raise ValueError(f'Row {row_id}: {node["comment"]}; no updates committed')
@@ -33,9 +33,9 @@ def convert_conditions(connection, apply=False, replace=False):
                 updates.append((node['condition_cel'], row_id))
                 normalized_updates.append((node['condition_cel'],
                     Json(node['condition_json']) if node['condition_json'] is not None else None,
-                    node['condition_origin'], row_id))
+                    node['condition_raw_type'], row_id))
             if apply:
-                cursor.executemany('UPDATE policy SET condition_cel=%s, condition_json=%s, condition_origin=%s WHERE id=%s', normalized_updates)
+                cursor.executemany('UPDATE policy SET condition_cel=%s, condition_json=%s, condition_raw_type=%s WHERE id=%s', normalized_updates)
     return updates
 
 

@@ -12,8 +12,9 @@ def insert_policy_tree(cursor, tree, *, table='policy', schema=None, parent_id=N
     identifier = sql.Identifier(schema, table) if schema else sql.Identifier(table)
     query = sql.SQL('''
         INSERT INTO {} (parent, name, display_name, comment, provider,
-            provider_detail, operator, condition_raw, condition_cel, condition_json, condition_origin)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) RETURNING id
+            provider_detail, "operator_onChildren", condition_raw, condition_cel,
+            condition_json, condition_raw_type, effect)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s) RETURNING id
     ''').format(identifier)
 
     def insert(node, parent):

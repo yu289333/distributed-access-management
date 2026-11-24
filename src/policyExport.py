@@ -10,7 +10,8 @@ def export_policy_tree(connection, root_id):
             UNION ALL
             SELECT p.*, t.visited || p.id FROM policy p JOIN tree t ON p.parent=t.id
             WHERE NOT p.id=ANY(t.visited))
-            SELECT id, parent, ''' + ', '.join(COLUMNS) + ' FROM tree ORDER BY id', (root_id,))
+            SELECT id, parent, ''' + ', '.join(f'"{column}"' for column in COLUMNS)
+                       + ' FROM tree ORDER BY id', (root_id,))
         rows = cursor.fetchall()
     if not rows:
         raise ValueError(f'Policy root {root_id} not found')

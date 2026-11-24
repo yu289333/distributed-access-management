@@ -18,17 +18,20 @@ class PolicyTreeTests(unittest.TestCase):
         self.assertEqual(len(cursor.rows), 17)
         self.assertEqual(cursor.rows[0]['params'][1], "O'Reilly")
         self.assertIsNone(cursor.rows[0]['params'][0])
+        self.assertIsNone(cursor.rows[0]['params'][-1])
         for offset in range(1, 17, 4):
             group = cursor.rows[offset]
             group_id = offset + 1
             self.assertEqual(group['params'][0], root_id)
             self.assertIsNone(group['params'][9])
+            self.assertEqual(group['params'][-1], 'allow')
             for row in cursor.rows[offset + 1:offset + 4]:
                 self.assertEqual(row['params'][0], group_id)
                 self.assertEqual(row['params'][4:7], ['AWS', 'arn:aws', 'AND'])
                 self.assertIsInstance(row['params'][9], dict)
                 self.assertEqual(len(row['params'][9]), 1)
                 self.assertIn('"auth"."policy"', row['query'])
+                self.assertIn('"operator_onChildren"', row['query'])
                 self.assertNotIn("O'Reilly", row['query'])
         self.assertEqual(json.loads(tree['condition_raw']), json.loads(source))
 
@@ -39,7 +42,7 @@ class PolicyTreeTests(unittest.TestCase):
         self.assertTrue(all(row['params'][4] == 'Azure' for row in cursor.rows))
 
     def test_validation_occurs_before_any_insert(self):
-        node = policyTree.make_node('root', 'AWS', 'arn:aws', children=[{'operator': 'INVALID'}])
+        node = policyTree.make_node('root', 'AWS', 'arn:aws', children=[{'operator_onChildren': 'INVALID'}])
         cursor = RecordingCursor()
         with self.assertRaises(ValueError):
             policyTree.insert_policy_tree(cursor, node)
@@ -52,7 +55,9 @@ class PolicyTreeTests(unittest.TestCase):
         shared = policyTree.make_node('root', 'AWS', 'arn:aws', children=[child, child])
         invalid_not = policyTree.make_node('not', 'AWS', 'arn:aws', 'NOT')
         invalid_json = policyTree.make_node('bad', 'AWS', 'arn:aws', condition_json={'x': float('nan')})
-        for tree in [root, shared, invalid_not, invalid_json, {'cloud': 'AWS', 'operator': 'AND'}]:
+        invalid_effect = policyTree.make_node('bad', 'AWS', 'arn:aws', effect=42)
+        for tree in [root, shared, invalid_not, invalid_json, invalid_effect,
+                     {'cloud': 'AWS', 'operator_onChildren': 'AND'}]:
             with self.assertRaises(ValueError):
                 policyTree.validate_tree(tree)
 

@@ -13,19 +13,22 @@ import json
 
 
 COLUMNS = ('name', 'display_name', 'comment', 'provider', 'provider_detail',
-           'operator', 'condition_raw', 'condition_cel', 'condition_json', 'condition_origin')
-OPERATORS = {'AND', 'OR', 'XOR', 'NOT'}
+           'operator_onChildren', 'condition_raw', 'condition_cel', 'condition_json',
+           'condition_raw_type', 'effect')
+OPERATORS = {'AND', 'OR', 'NOT'}
 
 
-def make_node(name, provider, provider_detail, operator='AND', *, children=None,
+def make_node(name, provider, provider_detail, operator_onChildren='AND', *, children=None,
               condition_json=None, condition_raw=None, condition_cel=None,
-              display_name=None, comment=None, condition_origin=None):
+              display_name=None, comment=None, condition_raw_type=None,
+              effect=None):
     """Construct a node using only column names from db/policy.sql."""
     return dict(name=name, display_name=display_name, comment=comment,
                 provider=provider, provider_detail=provider_detail,
-                operator=operator, condition_raw=condition_raw,
+                operator_onChildren=operator_onChildren, condition_raw=condition_raw,
                 condition_cel=condition_cel, condition_json=condition_json,
-                condition_origin=condition_origin or ('json' if condition_json is not None else None),
+                condition_raw_type=condition_raw_type or ('json' if condition_json is not None else None),
+                effect=effect,
                 children=list(children) if children is not None else [])
 
 
@@ -42,8 +45,8 @@ def validate_tree(tree):
         unknown = set(node) - set(COLUMNS) - {'children'}
         if unknown:
             raise ValueError(f'Unknown policy fields: {sorted(unknown)}')
-        if node.get('operator') not in OPERATORS:
-            raise ValueError('Policy operator must be AND, OR, XOR, or NOT')
+        if node.get('operator_onChildren') not in OPERATORS:
+            raise ValueError('Policy operator must be AND, OR, or NOT')
         for key in COLUMNS:
             if key != 'condition_json' and node.get(key) is not None:
                 if not isinstance(node[key], str):
@@ -51,7 +54,7 @@ def validate_tree(tree):
         children = node.get('children', [])
         if not isinstance(children, list):
             raise ValueError('children must be a list')
-        if node['operator'] == 'NOT' and len(children) != 1:
+        if node['operator_onChildren'] == 'NOT' and len(children) != 1:
             raise ValueError('NOT requires exactly one child')
         if children and any(node.get(key) is not None for key in
                             ('condition_json', 'condition_cel')):
@@ -62,7 +65,7 @@ def validate_tree(tree):
             raise ValueError('condition_json must be JSON serializable') from exc
         if node.get('condition_json') is not None and node.get('condition_raw') is not None:
             from .conditionSource import normalize_condition
-            normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_origin'))
+            normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_raw_type'))
         for child in children:
             visit(child)
 
@@ -107,6 +110,7 @@ def canonicalize(tree):
     * a non-root structural node with exactly one child is replaced by it.
 
     Leaf expressions are never modified, so the set of predicates is preserved.
+    Nodes carrying an explicit effect are kept.
     Labels and per-node ``condition_raw`` text of eliminated nodes are dropped;
     the root keeps its own ``condition_raw``. Use this for a canonical form to
     compare or store, not as a substitute for the lossless tree.
@@ -123,25 +127,30 @@ def _canonical(node, *, is_root):
     kept = []
     for child in node['children']:
         if (not _has_expression(child) and not child['children'] and
-                child['operator'] == node['operator'] and
-                node['operator'] in ('AND', 'OR')):
+                child.get('effect') is None and
+                child['operator_onChildren'] == node['operator_onChildren'] and
+                node['operator_onChildren'] in ('AND', 'OR')):
             continue
         kept.append(child)
     spliced = []
     for child in kept:
         # NOT is not associative: NOT(NOT x) is x, not NOT(x's children).
-        if (not _has_expression(child) and child['operator'] == node['operator'] and
-                node['operator'] != 'NOT' and child.get('condition_raw') is None):
+        if (not _has_expression(child) and child['operator_onChildren'] == node['operator_onChildren'] and
+                child.get('effect') is None and
+                node['operator_onChildren'] != 'NOT' and child.get('condition_raw') is None):
             spliced.extend(child['children'])
         else:
             spliced.append(child)
     node['children'] = spliced
-    if node['operator'] == 'NOT' and len(node['children']) == 1:
+    if (node['operator_onChildren'] == 'NOT' and len(node['children']) == 1
+            and node.get('effect') is None):
         child = node['children'][0]
-        if not _has_expression(child) and child['operator'] == 'NOT':
+        if (not _has_expression(child) and child['operator_onChildren'] == 'NOT'
+                and child.get('effect') is None):
             node = child['children'][0]
     if (not is_root and not _has_expression(node) and
-            node['operator'] != 'NOT' and len(node['children']) == 1):
+            node.get('effect') is None and
+            node['operator_onChildren'] != 'NOT' and len(node['children']) == 1):
         node = node['children'][0]
     return node
 

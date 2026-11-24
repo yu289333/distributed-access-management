@@ -89,7 +89,7 @@ class AzureParserTests(unittest.TestCase):
         self.assertEqual(tree['provider_detail'], 'Microsoft.Authorization/policyDefinitions')
         self.assertIn({'effect': 'audit'}, [n['condition_json'] for n in walk(tree)])
         self.assertEqual(json.loads(tree['condition_raw']), source)
-        self.assertEqual([node['operator'] for node in walk(tree)].count('NOT'), 1)
+        self.assertEqual([node['operator_onChildren'] for node in walk(tree)].count('NOT'), 1)
         self.assertIsNone(tree['condition_json'])
 
     def test_audit_example_matches_sql_sketch_with_predicate_cel(self):
@@ -107,15 +107,15 @@ class AzureParserTests(unittest.TestCase):
         self.assertTrue(all(n['condition_cel'] is not None for n in walk(tree) if n['condition_json'] is not None))
         self.assertTrue(all(n['condition_cel'] is None for n in walk(tree) if n['children']))
         applicability, outcome = tree['children']
-        self.assertEqual(applicability['operator'], 'AND')
-        self.assertEqual(applicability['children'][1]['operator'], 'NOT')
-        self.assertEqual(outcome['operator'], 'AND')
+        self.assertEqual(applicability['operator_onChildren'], 'AND')
+        self.assertEqual(applicability['children'][1]['operator_onChildren'], 'NOT')
+        self.assertEqual(outcome['operator_onChildren'], 'AND')
         effect, details = outcome['children']
         self.assertEqual(effect['condition_cel'], 'effect == "audit"')
         self.assertEqual(effect['condition_json'], {'effect': 'audit'})
         self.assertEqual(effect['condition_raw'], '"effect": "audit"')
         self.assertEqual(details['name'], 'details')
-        self.assertEqual(details['operator'], 'AND')
+        self.assertEqual(details['operator_onChildren'], 'AND')
         self.assertEqual(details['children'][0]['condition_cel'], 'type == "Microsoft.Compute/virtualMachines"')
         self.assertEqual(details['children'][-1]['condition_cel'], 'severity == "Critical"')
         self.assertEqual([n['condition_json'] for n in details['children']],
@@ -124,9 +124,9 @@ class AzureParserTests(unittest.TestCase):
     def test_classic_role_has_scope_expression(self):
         source = (ROOT / 'examples/azure-classic-vm-role.json').read_text()
         tree = parse_policy(source)
-        self.assertEqual(tree['operator'], 'AND')
+        self.assertEqual(tree['operator_onChildren'], 'AND')
         permissions, scopes = tree['children']
-        self.assertEqual(permissions['operator'], 'OR')
+        self.assertEqual(permissions['operator_onChildren'], 'OR')
         self.assertEqual(scopes['name'], 'assignableScopes')
         self.assertEqual(scopes['condition_json'], {'assignableScopes': ['/']})
         self.assertEqual(scopes['condition_cel'], 'assignableScopes == ["/"]')

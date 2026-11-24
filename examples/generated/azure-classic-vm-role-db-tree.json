@@ -6,11 +6,12 @@
   "comment": "\"description\": \"Lets you manage classic virtual machines, but not access to them, and not the virtual network or storage account they're connected to.\"",
   "provider": "Azure",
   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-  "operator": "AND",
+  "operator_onChildren": "AND",
   "condition_raw": "{\n  \"assignableScopes\": [\n    \"/\"\n  ],\n  \"description\": \"Lets you manage classic virtual machines, but not access to them, and not the virtual network or storage account they're connected to.\",\n  \"id\": \"/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/d73bb868-a0df-4d4d-bd69-98a00b01fccb\",\n  \"name\": \"d73bb868-a0df-4d4d-bd69-98a00b01fccb\",\n  \"permissions\": [\n    {\n      \"actions\": [\n        \"Microsoft.Authorization/*/read\",\n        \"Microsoft.ClassicCompute/domainNames/*\",\n        \"Microsoft.ClassicCompute/virtualMachines/*\",\n        \"Microsoft.ClassicNetwork/networkSecurityGroups/join/action\",\n        \"Microsoft.ClassicNetwork/reservedIps/link/action\",\n        \"Microsoft.ClassicNetwork/reservedIps/read\",\n        \"Microsoft.ClassicNetwork/virtualNetworks/join/action\",\n        \"Microsoft.ClassicNetwork/virtualNetworks/read\",\n        \"Microsoft.ClassicStorage/storageAccounts/disks/read\",\n        \"Microsoft.ClassicStorage/storageAccounts/images/read\",\n        \"Microsoft.ClassicStorage/storageAccounts/listKeys/action\",\n        \"Microsoft.ClassicStorage/storageAccounts/read\",\n        \"Microsoft.Insights/alertRules/*\",\n        \"Microsoft.ResourceHealth/availabilityStatuses/read\",\n        \"Microsoft.Resources/deployments/*\",\n        \"Microsoft.Resources/subscriptions/resourceGroups/read\",\n        \"Microsoft.Support/*\"\n      ],\n      \"notActions\": [],\n      \"dataActions\": [],\n      \"notDataActions\": []\n    }\n  ],\n  \"roleName\": \"Classic Virtual Machine Contributor\",\n  \"roleType\": \"BuiltInRole\",\n  \"type\": \"Microsoft.Authorization/roleDefinitions\"\n}\n",
   "condition_cel": null,
   "condition_json": null,
-  "condition_origin": "json",
+  "condition_raw_type": "json",
+  "effect": null,
   "children": [
     {
       "id": 862,
@@ -20,11 +21,12 @@
       "comment": null,
       "provider": "Azure",
       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-      "operator": "OR",
+      "operator_onChildren": "OR",
       "condition_raw": null,
       "condition_cel": null,
       "condition_json": null,
-      "condition_origin": null,
+      "condition_raw_type": null,
+      "effect": null,
       "children": [
         {
           "id": 863,
@@ -34,11 +36,12 @@
           "comment": null,
           "provider": "Azure",
           "provider_detail": "Microsoft.Authorization/roleDefinitions",
-          "operator": "OR",
+          "operator_onChildren": "OR",
           "condition_raw": "{\n      \"actions\": [\n        \"Microsoft.Authorization/*/read\",\n        \"Microsoft.ClassicCompute/domainNames/*\",\n        \"Microsoft.ClassicCompute/virtualMachines/*\",\n        \"Microsoft.ClassicNetwork/networkSecurityGroups/join/action\",\n        \"Microsoft.ClassicNetwork/reservedIps/link/action\",\n        \"Microsoft.ClassicNetwork/reservedIps/read\",\n        \"Microsoft.ClassicNetwork/virtualNetworks/join/action\",\n        \"Microsoft.ClassicNetwork/virtualNetworks/read\",\n        \"Microsoft.ClassicStorage/storageAccounts/disks/read\",\n        \"Microsoft.ClassicStorage/storageAccounts/images/read\",\n        \"Microsoft.ClassicStorage/storageAccounts/listKeys/action\",\n        \"Microsoft.ClassicStorage/storageAccounts/read\",\n        \"Microsoft.Insights/alertRules/*\",\n        \"Microsoft.ResourceHealth/availabilityStatuses/read\",\n        \"Microsoft.Resources/deployments/*\",\n        \"Microsoft.Resources/subscriptions/resourceGroups/read\",\n        \"Microsoft.Support/*\"\n      ],\n      \"notActions\": [],\n      \"dataActions\": [],\n      \"notDataActions\": []\n    }",
           "condition_cel": null,
           "condition_json": null,
-          "condition_origin": "json",
+          "condition_raw_type": "json",
+          "effect": null,
           "children": [
             {
               "id": 864,
@@ -48,11 +51,12 @@
               "comment": null,
               "provider": "Azure",
               "provider_detail": "Microsoft.Authorization/roleDefinitions",
-              "operator": "AND",
+              "operator_onChildren": "AND",
               "condition_raw": null,
               "condition_cel": null,
               "condition_json": null,
-              "condition_origin": null,
+              "condition_raw_type": null,
+              "effect": null,
               "children": [
                 {
                   "id": 865,
@@ -62,11 +66,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "OR",
+                  "operator_onChildren": "OR",
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": [
                     {
                       "id": 866,
@@ -76,7 +81,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.Authorization/*/read\"]",
                       "condition_json": {
@@ -84,7 +89,8 @@
                           "Microsoft.Authorization/*/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -95,7 +101,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicCompute/domainNames/*\"]",
                       "condition_json": {
@@ -103,7 +109,8 @@
                           "Microsoft.ClassicCompute/domainNames/*"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -114,7 +121,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicCompute/virtualMachines/*\"]",
                       "condition_json": {
@@ -122,7 +129,8 @@
                           "Microsoft.ClassicCompute/virtualMachines/*"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -133,7 +141,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicNetwork/networkSecurityGroups/join/action\"]",
                       "condition_json": {
@@ -141,7 +149,8 @@
                           "Microsoft.ClassicNetwork/networkSecurityGroups/join/action"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -152,7 +161,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicNetwork/reservedIps/link/action\"]",
                       "condition_json": {
@@ -160,7 +169,8 @@
                           "Microsoft.ClassicNetwork/reservedIps/link/action"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -171,7 +181,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicNetwork/reservedIps/read\"]",
                       "condition_json": {
@@ -179,7 +189,8 @@
                           "Microsoft.ClassicNetwork/reservedIps/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -190,7 +201,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicNetwork/virtualNetworks/join/action\"]",
                       "condition_json": {
@@ -198,7 +209,8 @@
                           "Microsoft.ClassicNetwork/virtualNetworks/join/action"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -209,7 +221,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicNetwork/virtualNetworks/read\"]",
                       "condition_json": {
@@ -217,7 +229,8 @@
                           "Microsoft.ClassicNetwork/virtualNetworks/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -228,7 +241,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicStorage/storageAccounts/disks/read\"]",
                       "condition_json": {
@@ -236,7 +249,8 @@
                           "Microsoft.ClassicStorage/storageAccounts/disks/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -247,7 +261,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicStorage/storageAccounts/images/read\"]",
                       "condition_json": {
@@ -255,7 +269,8 @@
                           "Microsoft.ClassicStorage/storageAccounts/images/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -266,7 +281,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicStorage/storageAccounts/listKeys/action\"]",
                       "condition_json": {
@@ -274,7 +289,8 @@
                           "Microsoft.ClassicStorage/storageAccounts/listKeys/action"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -285,7 +301,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ClassicStorage/storageAccounts/read\"]",
                       "condition_json": {
@@ -293,7 +309,8 @@
                           "Microsoft.ClassicStorage/storageAccounts/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -304,7 +321,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.Insights/alertRules/*\"]",
                       "condition_json": {
@@ -312,7 +329,8 @@
                           "Microsoft.Insights/alertRules/*"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -323,7 +341,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.ResourceHealth/availabilityStatuses/read\"]",
                       "condition_json": {
@@ -331,7 +349,8 @@
                           "Microsoft.ResourceHealth/availabilityStatuses/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -342,7 +361,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.Resources/deployments/*\"]",
                       "condition_json": {
@@ -350,7 +369,8 @@
                           "Microsoft.Resources/deployments/*"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -361,7 +381,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.Resources/subscriptions/resourceGroups/read\"]",
                       "condition_json": {
@@ -369,7 +389,8 @@
                           "Microsoft.Resources/subscriptions/resourceGroups/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -380,7 +401,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "actions == [\"Microsoft.Support/*\"]",
                       "condition_json": {
@@ -388,7 +409,8 @@
                           "Microsoft.Support/*"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     }
                   ]
@@ -401,11 +423,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "NOT",
+                  "operator_onChildren": "NOT",
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": [
                     {
                       "id": 884,
@@ -415,11 +438,12 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "OR",
+                      "operator_onChildren": "OR",
                       "condition_raw": null,
                       "condition_cel": "false",
                       "condition_json": null,
-                      "condition_origin": null,
+                      "condition_raw_type": null,
+                      "effect": null,
                       "children": []
                     }
                   ]
@@ -434,11 +458,12 @@
               "comment": null,
               "provider": "Azure",
               "provider_detail": "Microsoft.Authorization/roleDefinitions",
-              "operator": "AND",
+              "operator_onChildren": "AND",
               "condition_raw": null,
               "condition_cel": null,
               "condition_json": null,
-              "condition_origin": null,
+              "condition_raw_type": null,
+              "effect": null,
               "children": [
                 {
                   "id": 886,
@@ -448,11 +473,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "OR",
+                  "operator_onChildren": "OR",
                   "condition_raw": null,
                   "condition_cel": "false",
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": []
                 },
                 {
@@ -463,11 +489,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "NOT",
+                  "operator_onChildren": "NOT",
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": [
                     {
                       "id": 888,
@@ -477,11 +504,12 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "OR",
+                      "operator_onChildren": "OR",
                       "condition_raw": null,
                       "condition_cel": "false",
                       "condition_json": null,
-                      "condition_origin": null,
+                      "condition_raw_type": null,
+                      "effect": null,
                       "children": []
                     }
                   ]
@@ -500,7 +528,7 @@
       "comment": null,
       "provider": "Azure",
       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-      "operator": "AND",
+      "operator_onChildren": "AND",
       "condition_raw": "\"assignableScopes\": [\n    \"/\"\n  ]",
       "condition_cel": "assignableScopes == [\"/\"]",
       "condition_json": {
@@ -508,7 +536,8 @@
           "/"
         ]
       },
-      "condition_origin": "json",
+      "condition_raw_type": "json",
+      "effect": null,
       "children": []
     }
   ]

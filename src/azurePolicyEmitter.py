@@ -63,9 +63,9 @@ def _scopes(root):
 
 def _blocks(root):
     children = root.get('children', [])
-    if root.get('operator') == 'AND' and children and children[0].get('name') == 'permissions':
+    if root.get('operator_onChildren') == 'AND' and children and children[0].get('name') == 'permissions':
         return children[0].get('children', [])
-    if root.get('operator') == 'OR':
+    if root.get('operator_onChildren') == 'OR':
         return children
     raise ValueError('Unexpected Azure RBAC tree shape')
 

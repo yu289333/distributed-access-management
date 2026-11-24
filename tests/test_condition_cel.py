@@ -76,7 +76,7 @@ class CelTests(unittest.TestCase):
         tree = azure(path.read_text())
         applicability, outcome = tree['children']
         type_leaf, negation = applicability['children']
-        self.assertEqual(negation['operator'], 'NOT')
+        self.assertEqual(negation['operator_onChildren'], 'NOT')
         encryption_leaf = negation['children'][0]
         expression = encryption_leaf['condition_cel']
         self.assertEqual(expression, 'Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true')

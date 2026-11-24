@@ -31,6 +31,14 @@ def contents(expression):
 
 
 class CanonicalizeTests(unittest.TestCase):
+    def test_group_with_explicit_effect_is_preserved(self):
+        for effect in ('allow', 'deny'):
+            with self.subTest(effect=effect):
+                leaf = make_node('leaf', 'AWS', 'arn:aws', condition_json={'Action': 'read'})
+                group = make_node('rule', 'AWS', 'arn:aws', children=[leaf], effect=effect)
+                tree = make_node('root', 'AWS', 'arn:aws', children=[group])
+                self.assertEqual(canonicalize(tree), tree)
+
     def test_nested_groups_of_the_same_operator_are_spliced(self):
         leaf = lambda name: make_node(name, 'AWS', 'arn:aws',
                                       condition_json={'x': name})
@@ -39,10 +47,10 @@ class CanonicalizeTests(unittest.TestCase):
                       children=[leaf('a'), leaf('b')])])
         reduced = canonicalize(tree)
         self.assertEqual(len(nodes(reduced)), 3)
-        self.assertEqual(reduced['operator'], 'OR')
+        self.assertEqual(reduced['operator_onChildren'], 'OR')
         self.assertCountEqual(leaves(reduced), leaves(tree))
         for child in reduced['children']:
-            self.assertNotEqual(child['operator'], 'OR')
+            self.assertNotEqual(child['operator_onChildren'], 'OR')
 
     def test_semantics_survive_for_every_example(self):
         for name, tree in examples():
@@ -69,12 +77,12 @@ class CanonicalizeTests(unittest.TestCase):
         self.assertEqual(json.dumps(tree, sort_keys=True), before)
 
     def test_not_not_and_empty_groups_are_removed(self):
-        leaf = lambda name: {'name': name, 'operator': 'AND', 'condition_json': {'x': name}}
-        tree = {'name': 'root', 'operator': 'AND', 'children': [
-            {'name': 'double', 'operator': 'NOT', 'children': [
-                {'name': 'inner', 'operator': 'NOT', 'children': [leaf('a')]}]},
-            {'name': 'true', 'operator': 'AND', 'children': []},
-            {'name': 'group', 'operator': 'AND', 'children': [leaf('b')]},
+        leaf = lambda name: {'name': name, 'operator_onChildren': 'AND', 'condition_json': {'x': name}}
+        tree = {'name': 'root', 'operator_onChildren': 'AND', 'children': [
+            {'name': 'double', 'operator_onChildren': 'NOT', 'children': [
+                {'name': 'inner', 'operator_onChildren': 'NOT', 'children': [leaf('a')]}]},
+            {'name': 'true', 'operator_onChildren': 'AND', 'children': []},
+            {'name': 'group', 'operator_onChildren': 'AND', 'children': [leaf('b')]},
         ]}
         for node in nodes(tree):
             node.setdefault('provider', 'AWS')
@@ -97,7 +105,7 @@ class CanonicalizeTests(unittest.TestCase):
 
     def test_invalid_trees_are_rejected(self):
         with self.assertRaises(ValueError):
-            canonicalize({'operator': 'MAYBE', 'children': []})
+            canonicalize({'operator_onChildren': 'MAYBE', 'children': []})
 
 
 if __name__ == '__main__':

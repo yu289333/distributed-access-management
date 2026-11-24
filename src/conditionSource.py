@@ -1,6 +1,6 @@
 """Original condition text and explicit serialization-format handling.
 
-Provider identifies policy language; condition_origin identifies serialization.
+Provider identifies policy language; condition_raw_type identifies serialization.
 JSON raw text may be an object or an exact object-member fragment from the input.
 """
 import json
@@ -27,8 +27,8 @@ def register_condition_format(name, reader):
     _FORMAT_READERS[name] = reader
 
 
-def normalize_condition(condition_json, condition_raw, condition_origin=None):
-    origin = condition_origin
+def normalize_condition(condition_json, condition_raw, condition_raw_type=None):
+    origin = condition_raw_type
     if origin is None:
         # Compatibility: only infer JSON from actual JSON data, never provider.
         if condition_json is not None:
@@ -43,7 +43,7 @@ def normalize_condition(condition_json, condition_raw, condition_origin=None):
             raise ValueError('Native CEL requires raw text and no JSON without a registered translation')
         return None, condition_raw
     if origin not in _FORMAT_READERS:
-        raise ValueError(f'Unsupported condition_origin: {origin}; register a format adapter')
+        raise ValueError(f'Unsupported condition_raw_type: {origin}; register a format adapter')
     decoded = _FORMAT_READERS[origin](condition_raw) if condition_raw is not None else None
     if condition_json is not None and decoded is not None:
         if canonical(condition_json) != canonical(decoded):
@@ -119,18 +119,18 @@ def attach_json_source(tree, source):
     def visit(node, root=False):
         expression = node.get('condition_json')
         if expression is not None:
-            node['condition_origin'] = 'json'
+            node['condition_raw_type'] = 'json'
             node['condition_raw'] = fragments.get(canonical(expression))
         elif node.get('condition_raw') is not None:
             if root:
-                node['condition_origin'] = 'json'
+                node['condition_raw_type'] = 'json'
             elif isinstance(source, str):
                 old = decode_json_condition(node['condition_raw'])
                 node['condition_raw'] = fragments.get(canonical(old))
-                node['condition_origin'] = 'json' if node['condition_raw'] else None
+                node['condition_raw_type'] = 'json' if node['condition_raw'] else None
             else:
                 # Object input has no lexical text; this is its canonical JSON serialization.
-                node['condition_origin'] = 'json'
+                node['condition_raw_type'] = 'json'
         for child in node['children']:
             visit(child)
     visit(tree, True)

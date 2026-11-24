@@ -6,11 +6,12 @@
   "comment": "\"description\": \"Allow read, write and delete access to Azure Spring Cloud Service Registry\"",
   "provider": "Azure",
   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-  "operator": "AND",
+  "operator_onChildren": "AND",
   "condition_raw": "{\n  \"assignableScopes\": [\n    \"/\"\n  ],\n  \"description\": \"Allow read, write and delete access to Azure Spring Cloud Service Registry\",\n  \"id\": \"/subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/f5880b48-c26d-48be-b172-7927bfa1c8f1\",\n  \"name\": \"f5880b48-c26d-48be-b172-7927bfa1c8f1\",\n  \"permissions\": [\n    {\n      \"actions\": [],\n      \"notActions\": [],\n      \"dataActions\": [\n        \"Microsoft.AppPlatform/Spring/eurekaService/read\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/write\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/delete\"\n      ],\n      \"notDataActions\": []\n    }\n  ],\n  \"roleName\": \"Azure Spring Cloud Service Registry Contributor\",\n  \"roleType\": \"BuiltInRole\",\n  \"type\": \"Microsoft.Authorization/roleDefinitions\"\n}\n",
   "condition_cel": null,
   "condition_json": null,
-  "condition_origin": "json",
+  "condition_raw_type": "json",
+  "effect": null,
   "children": [
     {
       "id": 1140,
@@ -20,11 +21,12 @@
       "comment": null,
       "provider": "Azure",
       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-      "operator": "OR",
+      "operator_onChildren": "OR",
       "condition_raw": null,
       "condition_cel": null,
       "condition_json": null,
-      "condition_origin": null,
+      "condition_raw_type": null,
+      "effect": null,
       "children": [
         {
           "id": 1141,
@@ -34,11 +36,12 @@
           "comment": null,
           "provider": "Azure",
           "provider_detail": "Microsoft.Authorization/roleDefinitions",
-          "operator": "OR",
+          "operator_onChildren": "OR",
           "condition_raw": "{\n      \"actions\": [],\n      \"notActions\": [],\n      \"dataActions\": [\n        \"Microsoft.AppPlatform/Spring/eurekaService/read\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/write\",\n        \"Microsoft.AppPlatform/Spring/eurekaService/delete\"\n      ],\n      \"notDataActions\": []\n    }",
           "condition_cel": null,
           "condition_json": null,
-          "condition_origin": "json",
+          "condition_raw_type": "json",
+          "effect": null,
           "children": [
             {
               "id": 1142,
@@ -48,11 +51,12 @@
               "comment": null,
               "provider": "Azure",
               "provider_detail": "Microsoft.Authorization/roleDefinitions",
-              "operator": "AND",
+              "operator_onChildren": "AND",
               "condition_raw": null,
               "condition_cel": null,
               "condition_json": null,
-              "condition_origin": null,
+              "condition_raw_type": null,
+              "effect": null,
               "children": [
                 {
                   "id": 1143,
@@ -62,11 +66,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "OR",
+                  "operator_onChildren": "OR",
                   "condition_raw": null,
                   "condition_cel": "false",
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": []
                 },
                 {
@@ -77,11 +82,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "NOT",
+                  "operator_onChildren": "NOT",
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": [
                     {
                       "id": 1145,
@@ -91,11 +97,12 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "OR",
+                      "operator_onChildren": "OR",
                       "condition_raw": null,
                       "condition_cel": "false",
                       "condition_json": null,
-                      "condition_origin": null,
+                      "condition_raw_type": null,
+                      "effect": null,
                       "children": []
                     }
                   ]
@@ -110,11 +117,12 @@
               "comment": null,
               "provider": "Azure",
               "provider_detail": "Microsoft.Authorization/roleDefinitions",
-              "operator": "AND",
+              "operator_onChildren": "AND",
               "condition_raw": null,
               "condition_cel": null,
               "condition_json": null,
-              "condition_origin": null,
+              "condition_raw_type": null,
+              "effect": null,
               "children": [
                 {
                   "id": 1147,
@@ -124,11 +132,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "OR",
+                  "operator_onChildren": "OR",
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": [
                     {
                       "id": 1148,
@@ -138,7 +147,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "dataActions == [\"Microsoft.AppPlatform/Spring/eurekaService/read\"]",
                       "condition_json": {
@@ -146,7 +155,8 @@
                           "Microsoft.AppPlatform/Spring/eurekaService/read"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -157,7 +167,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "dataActions == [\"Microsoft.AppPlatform/Spring/eurekaService/write\"]",
                       "condition_json": {
@@ -165,7 +175,8 @@
                           "Microsoft.AppPlatform/Spring/eurekaService/write"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     },
                     {
@@ -176,7 +187,7 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "AND",
+                      "operator_onChildren": "AND",
                       "condition_raw": null,
                       "condition_cel": "dataActions == [\"Microsoft.AppPlatform/Spring/eurekaService/delete\"]",
                       "condition_json": {
@@ -184,7 +195,8 @@
                           "Microsoft.AppPlatform/Spring/eurekaService/delete"
                         ]
                       },
-                      "condition_origin": "json",
+                      "condition_raw_type": "json",
+                      "effect": null,
                       "children": []
                     }
                   ]
@@ -197,11 +209,12 @@
                   "comment": null,
                   "provider": "Azure",
                   "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                  "operator": "NOT",
+                  "operator_onChildren": "NOT",
                   "condition_raw": null,
                   "condition_cel": null,
                   "condition_json": null,
-                  "condition_origin": null,
+                  "condition_raw_type": null,
+                  "effect": null,
                   "children": [
                     {
                       "id": 1152,
@@ -211,11 +224,12 @@
                       "comment": null,
                       "provider": "Azure",
                       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-                      "operator": "OR",
+                      "operator_onChildren": "OR",
                       "condition_raw": null,
                       "condition_cel": "false",
                       "condition_json": null,
-                      "condition_origin": null,
+                      "condition_raw_type": null,
+                      "effect": null,
                       "children": []
                     }
                   ]
@@ -234,7 +248,7 @@
       "comment": null,
       "provider": "Azure",
       "provider_detail": "Microsoft.Authorization/roleDefinitions",
-      "operator": "AND",
+      "operator_onChildren": "AND",
       "condition_raw": "\"assignableScopes\": [\n    \"/\"\n  ]",
       "condition_cel": "assignableScopes == [\"/\"]",
       "condition_json": {
@@ -242,7 +256,8 @@
           "/"
         ]
       },
-      "condition_origin": "json",
+      "condition_raw_type": "json",
+      "effect": null,
       "children": []
     }
   ]

@@ -1,4 +1,4 @@
-CREATE TYPE setOperator AS ENUM ('OR', 'AND', 'XOR', 'NOT');
+CREATE TYPE setOperator AS ENUM ('OR', 'AND', 'NOT');
 
 create table policy (
     id  serial primary key,
@@ -8,9 +8,10 @@ create table policy (
     comment text,
     provider text,
     provider_detail text,
-    operator setOperator not null default 'AND',
+    "operator_onChildren" setOperator not null default 'AND',
     condition_raw text,
     condition_cel text,
     condition_json jsonb,
-    condition_origin text
+    condition_raw_type text,
+    effect text
 );

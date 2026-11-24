@@ -9,7 +9,7 @@ import unittest
 from src.awsPolicyEmitter import emit_aws, emit_policy, main
 from src.awsPolicyEntry import parse_policy
 from src.policyTree import canonicalize, make_node, validate_tree
-from policy_support import ROOT, documents, evaluate, walk
+from policy_support import ROOT, documents, walk
 
 
 def source_statements(source):
@@ -56,7 +56,6 @@ class AwsEmitterTests(unittest.TestCase):
                 self.assertEqual(emit_policy(parse_policy(source)), expected)
 
     def test_canonicalized_trees_still_emit(self):
-        # canonicalize() may collapse a one-statement allow/deny group to a leaf.
         for path in (ROOT / 'examples').glob('aws-*.json'):
             with self.subTest(path=path.name):
                 source = json.loads(path.read_text())
@@ -64,7 +63,7 @@ class AwsEmitterTests(unittest.TestCase):
                 tree = canonicalize(parse_policy(source))
                 self.assertEqual(emit_policy(tree), expected)
 
-    def test_order_and_deny_semantics_survive_a_round_trip(self):
+    def test_order_and_effects_survive_a_round_trip(self):
         source = {'Version': '2012-10-17', 'Id': 'mixed', 'Statement': [
             {'Sid': 'allow-read', 'Effect': 'Allow', 'Action': 's3:Get*', 'Resource': '*'},
             {'Sid': 'deny-prod', 'Effect': 'Deny', 'Action': 's3:*',
@@ -75,26 +74,13 @@ class AwsEmitterTests(unittest.TestCase):
         tree = parse_policy(source)
         document = emit_policy(tree)
         self.assertEqual(document, source)
-        rebuilt = parse_policy(document)
-        sid_by_action = {'s3:Get*': 'allow-read', 's3:PutObject': 'allow-write',
-                         's3:*': 'deny-prod'}
-
-        def selected(field):
-            # Leaves are now single fields; Sid lives on the statement group, so
-            # select statements by their Action instead.
-            sid = sid_by_action.get(field.get('Action'))
-            return True if sid is None else sid in matched
-
-        for matched in (set(), {'allow-read'}, {'allow-write'}, {'deny-prod'},
-                        {'allow-read', 'deny-prod'}, {'allow-read', 'allow-write', 'deny-prod'}):
-            with self.subTest(matched=matched):
-                self.assertEqual(evaluate(tree, selected), evaluate(rebuilt, selected))
+        self.assertEqual([group['name'] for group in tree['children']],
+                         ['allow-read', 'deny-prod', 'allow-write'])
 
     def test_deny_only_policy_round_trips(self):
         source = {'Statement': {'Effect': 'Deny', 'Action': '*', 'Resource': '*'}}
         document = emit_policy(parse_policy(source))
         self.assertEqual(document['Statement'], source['Statement'])
-        self.assertFalse(evaluate(parse_policy(document), lambda s: True))
 
     def test_api_wrappers_are_normalised(self):
         policy = {'Version': '2012-10-17', 'Statement': [
@@ -152,12 +138,12 @@ class AwsEmitterTests(unittest.TestCase):
     def test_unexpected_tree_shapes_are_rejected(self):
         base = {'Statement': {'Effect': 'Allow', 'Action': '*', 'Resource': '*'}}
         xor_tree = parse_policy(base)
-        xor_tree['operator'] = 'XOR'
-        with self.assertRaises(ValueError):
+        xor_tree['operator_onChildren'] = 'XOR'
+        with self.assertRaisesRegex(ValueError, 'Policy operator must be AND, OR, or NOT'):
             emit_policy(xor_tree)
 
         and_tree = parse_policy(base)
-        and_tree['operator'] = 'AND'
+        and_tree['operator_onChildren'] = 'AND'
         and_tree['children'] = [and_tree['children'][0], and_tree['children'][0].copy()]
         with self.assertRaises(ValueError):
             emit_policy(and_tree)

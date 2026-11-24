@@ -1,7 +1,7 @@
 """Parse AWS IAM policies into field trees with source-preserving expressions.
 
 Condition expressions compare original field values, preserving case, lists,
-wildcards and nested objects. Allow/deny composition stays in the tree.
+wildcards and nested objects. Each statement keeps its original Effect field.
 """
 
 import json
@@ -53,7 +53,7 @@ def _check_statement(statement, index):
 
 
 def parse_policy(source, name=None, *, provider_detail='arn:aws'):
-    """Parse an AWS JSON policy into an allow-set minus an explicit-deny-set."""
+    """Parse an AWS JSON policy into an OR of statement groups in source order."""
     original = load_document(source)
     document = original
     if 'Statement' not in document and 'PolicyVersion' in document:
@@ -72,26 +72,21 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
     def node(label, operator='AND', **kwargs):
         return make_node(label, 'AWS', provider_detail, operator, **kwargs)
 
-    allows, denies = [], []
+    groups = []
     for index, statement in enumerate(statements, 1):
         _check_statement(statement, index)
         group = node(statement.get('Sid') or f'Statement {index}', children=[
             node(key, condition_json={key: value},
                  condition_raw=json.dumps({key: value}))
             for key, value in statement.items() if key != 'Sid'
-        ], condition_raw=json.dumps(statement))
+        ], condition_raw=json.dumps(statement), effect=statement['Effect'].lower())
         if 'Sid' in statement:
             group['display_name'] = '"Sid": ' + json.dumps(statement['Sid'])
-        (allows if statement['Effect'] == 'Allow' else denies).append(group)
+        groups.append(group)
 
     policy_name = name or original.get('PolicyName') or original.get('Arn') or document.get('Id') or 'Statement'
-    root = node(policy_name, 'OR', children=allows,
+    root = node(policy_name, 'OR', children=groups,
                 condition_raw=source if isinstance(source, str) else json.dumps(original))
-    if denies:
-        root['operator'] = 'AND'
-        root['children'] = [node('Allowed statements', 'OR', children=allows),
-                            node('Exclude explicit denies', 'NOT', children=[
-                                node('Denied statements', 'OR', children=denies)])]
     if 'Version' in document:
         root['display_name'] = '"Version": ' + json.dumps(document['Version'])
     populate_condition_cel(root)

@@ -38,7 +38,7 @@ def _check_provider(tree):
 
 def _group(node, label):
     """A group is an OR of statement groups, a group, or a leaf."""
-    if node.get('operator') == 'OR':
+    if node.get('operator_onChildren') == 'OR':
         return node.get('children', [])
     if node.get('children') or node.get('condition_json') is not None:
         return [node]
@@ -48,12 +48,12 @@ def _group(node, label):
 def _statement_groups(tree):
     """Locate the allow and deny statement groups in a parse_policy-shaped tree."""
     children = tree.get('children', [])
-    if tree.get('operator') == 'OR':
+    if tree.get('operator_onChildren') == 'OR':
         return children, []
-    if tree.get('operator') == 'AND' and len(children) == 2:
+    if tree.get('operator_onChildren') == 'AND' and len(children) == 2:
         allowed, excluded = children
         denied = excluded.get('children', [])
-        if excluded.get('operator') == 'NOT' and len(denied) == 1:
+        if excluded.get('operator_onChildren') == 'NOT' and len(denied) == 1:
             return _group(allowed, 'allows'), _group(denied[0], 'denies')
     raise ValueError('Unexpected AWS tree shape; expected OR(allows) or '
                      'AND(OR(allows), NOT(OR(denies))), optionally canonicalized')

@@ -3,9 +3,9 @@ from .awsCondition import aws
 from .azureCondition import azure
 
 
-def condition_to_cel(condition_json=None, condition_raw=None, *, provider, provider_detail=None, condition_origin=None):
+def condition_to_cel(condition_json=None, condition_raw=None, *, provider, provider_detail=None, condition_raw_type=None):
     from .conditionSource import normalize_condition
-    condition_json, native = normalize_condition(condition_json, condition_raw, condition_origin)
+    condition_json, native = normalize_condition(condition_json, condition_raw, condition_raw_type)
     if native is not None:
         return native
     if provider == 'AWS':
@@ -21,19 +21,19 @@ def populate_condition_cel(tree):
         for child in tree['children']:
             populate_condition_cel(child)
     elif tree['condition_json'] is None and not tree['condition_raw']:
-        tree['condition_cel'] = 'false' if tree['operator'] in ('OR', 'XOR') else 'true'
+        tree['condition_cel'] = 'false' if tree['operator_onChildren'] == 'OR' else 'true'
     else:
         try:
             from .conditionSource import normalize_condition
             expression, native = normalize_condition(
-                tree['condition_json'], tree['condition_raw'], tree.get('condition_origin'))
+                tree['condition_json'], tree['condition_raw'], tree.get('condition_raw_type'))
             tree['condition_cel'] = condition_to_cel(
                 tree['condition_json'], tree['condition_raw'], provider=tree['provider'],
-                provider_detail=tree['provider_detail'], condition_origin=tree.get('condition_origin'))
+                provider_detail=tree['provider_detail'], condition_raw_type=tree.get('condition_raw_type'))
             if expression is not None:
                 tree['condition_json'] = expression
-                if tree.get('condition_origin') is None:
-                    tree['condition_origin'] = 'json'
+                if tree.get('condition_raw_type') is None:
+                    tree['condition_raw_type'] = 'json'
         except ValueError as exc:
             tree['condition_cel'] = None
             note = f'CEL conversion unavailable: {exc}'

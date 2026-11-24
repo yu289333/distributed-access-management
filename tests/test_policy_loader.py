@@ -66,7 +66,7 @@ class LoadPolicyTreeTests(unittest.TestCase):
 
     def test_invalid_rows_are_rejected_by_validation(self):
         values = {column: None for column in COLUMNS}
-        values['operator'] = 'MAYBE'
+        values['operator_onChildren'] = 'MAYBE'
         rows = [(1, None, *(values[column] for column in COLUMNS))]
         with self.assertRaises(ValueError):
             load_policy_tree(RowsConnection(rows), 1)
