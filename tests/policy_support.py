@@ -31,6 +31,10 @@ def evaluate(tree, predicate):
         return any(values)
     if tree['operator_onChildren'] == 'NOT':
         return not values[0]
+    if tree['operator_onChildren'] == 'SUBTRACT':
+        operands = {child['child_position']: value
+                    for child, value in zip(tree['children'], values)}
+        return operands[0] and not operands[1]
     raise AssertionError(tree['operator_onChildren'])
 
 

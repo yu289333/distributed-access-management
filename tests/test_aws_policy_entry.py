@@ -34,10 +34,19 @@ class AwsParserTests(unittest.TestCase):
                 self.assertEqual(source, original)
                 self.assertTrue(all(node['provider'] == 'AWS' for node in walk(tree)))
 
-    def test_mixed_policy_keeps_statement_groups_under_one_or(self):
+    def test_mixed_policy_groups_statements_by_declared_effect(self):
         tree = parse_policy((ROOT / 'examples/aws-mfa-mandated-policy.json').read_text())
-        self.assertEqual(tree['operator_onChildren'], 'OR')
-        self.assertTrue(all(group['operator_onChildren'] == 'AND' for group in tree['children']))
+        self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
+        for position, effect in enumerate(('Allow', 'Deny')):
+            operand = tree['children'][position]
+            self.assertEqual(operand['child_position'], position)
+            self.assertEqual(operand['operator_onChildren'], 'OR')
+            self.assertTrue(operand['children'])
+            for group in operand['children']:
+                self.assertEqual(group['operator_onChildren'], 'AND')
+                self.assertIsNone(group['effect'])
+                self.assertIn({'Effect': effect},
+                              [leaf['condition_json'] for leaf in group['children']])
         statements = [node['condition_json'] for node in walk(tree)
                       if node['condition_json'] is not None]
         self.assertTrue(any('Condition' in statement for statement in statements))
@@ -75,11 +84,20 @@ class AwsParserTests(unittest.TestCase):
                 statements = statements if isinstance(statements, list) else [statements]
                 self.assertEqual(len(statements), statement_count)
                 tree = parse_policy(raw)
-                self.assertEqual(tree['operator_onChildren'], 'OR')
-                self.assertEqual(len(tree['children']), statement_count)
-                for group, statement in zip(tree['children'], statements):
+                ordered = sorted(statements, key=lambda statement: statement['Effect'] == 'Deny')
+                if ordered[-1]['Effect'] == 'Deny':
+                    self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
+                    allowed, denied = tree['children']
+                    self.assertEqual(len(allowed['children']),
+                                     sum(statement['Effect'] == 'Allow' for statement in statements))
+                    groups = allowed['children'] + denied['children']
+                else:
+                    self.assertEqual(tree['operator_onChildren'], 'OR')
+                    groups = tree['children']
+                self.assertEqual(len(groups), statement_count)
+                for group, statement in zip(groups, ordered):
                     self.assertEqual(group['operator_onChildren'], 'AND')
-                    self.assertEqual(group['effect'], statement['Effect'].lower())
+                    self.assertIsNone(group['effect'])
                     self.assertEqual([leaf['condition_json'] for leaf in group['children']],
                                      [{key: value} for key, value in statement.items() if key != 'Sid'])
                     self.assertTrue(all(not leaf['children'] for leaf in group['children']))

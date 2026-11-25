@@ -43,7 +43,7 @@ def _check_statement(statement, index):
 
 
 def parse_policy(source, name=None, *, provider_detail='arn:aws'):
-    """Parse an AWS JSON policy into an OR of statement groups in source order."""
+    """Parse AWS statement groups, separating declared Deny statements when present."""
     original = load_document(source)
     document = original
     if 'Statement' not in document and 'PolicyVersion' in document:
@@ -62,20 +62,28 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
     def node(label, operator='AND', **kwargs):
         return make_node(label, 'AWS', provider_detail, operator, **kwargs)
 
-    groups = []
+    allowed, denied = [], []
     for index, statement in enumerate(statements, 1):
         _check_statement(statement, index)
         group = node(statement.get('Sid') or f'Statement {index}', children=[
             node(key, condition_json={key: value},
                  condition_raw=json.dumps({key: value}))
             for key, value in statement.items() if key != 'Sid'
-        ], condition_raw=json.dumps(statement), effect=statement['Effect'].lower())
+        ], condition_raw=json.dumps(statement))
         if 'Sid' in statement:
             group['display_name'] = '"Sid": ' + json.dumps(statement['Sid'])
-        groups.append(group)
+        (denied if statement['Effect'] == 'Deny' else allowed).append(group)
 
     policy_name = name or original.get('PolicyName') or original.get('Arn') or document.get('Id') or 'Statement'
-    root = node(policy_name, 'OR', children=groups,
+    operator = 'OR'
+    children = allowed
+    if denied:
+        operator = 'SUBTRACT'
+        children = [
+            node('Allow statements', 'OR', children=allowed, child_position=0),
+            node('Deny statements', 'OR', children=denied, child_position=1),
+        ]
+    root = node(policy_name, operator, children=children,
                 condition_raw=source if isinstance(source, str) else json.dumps(original))
     if 'Version' in document:
         root['display_name'] = '"Version": ' + json.dumps(document['Version'])

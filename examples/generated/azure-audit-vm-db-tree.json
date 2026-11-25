@@ -12,6 +12,7 @@
   "condition_json": null,
   "condition_raw_type": "json",
   "effect": null,
+  "child_position": null,
   "children": [
     {
       "id": 380,
@@ -27,6 +28,7 @@
       "condition_json": null,
       "condition_raw_type": null,
       "effect": null,
+      "child_position": null,
       "children": [
         {
           "id": 381,
@@ -45,6 +47,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -61,6 +64,7 @@
           "condition_json": null,
           "condition_raw_type": null,
           "effect": null,
+          "child_position": null,
           "children": [
             {
               "id": 383,
@@ -79,6 +83,7 @@
               },
               "condition_raw_type": "json",
               "effect": null,
+              "child_position": null,
               "children": []
             }
           ]
@@ -99,6 +104,7 @@
       "condition_json": null,
       "condition_raw_type": null,
       "effect": null,
+      "child_position": null,
       "children": [
         {
           "id": 386,
@@ -116,6 +122,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -132,6 +139,7 @@
           "condition_json": null,
           "condition_raw_type": null,
           "effect": null,
+          "child_position": null,
           "children": [
             {
               "id": 388,
@@ -149,6 +157,7 @@
               },
               "condition_raw_type": "json",
               "effect": null,
+              "child_position": null,
               "children": []
             },
             {
@@ -167,6 +176,7 @@
               },
               "condition_raw_type": "json",
               "effect": null,
+              "child_position": null,
               "children": []
             },
             {
@@ -185,6 +195,7 @@
               },
               "condition_raw_type": "json",
               "effect": null,
+              "child_position": null,
               "children": []
             },
             {
@@ -203,6 +214,7 @@
               },
               "condition_raw_type": "json",
               "effect": null,
+              "child_position": null,
               "children": []
             }
           ]

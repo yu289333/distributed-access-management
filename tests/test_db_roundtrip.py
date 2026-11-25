@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 import os
 import unittest
@@ -33,6 +34,19 @@ DELETE_SUBTREE = '''
 
 @unittest.skipUnless(DSN, 'DATABASE_URL required for the storage round trip')
 class DatabaseRoundTripTests(unittest.TestCase):
+    def test_aws_subtract_loads_operands_by_position(self):
+        source = (ROOT / 'examples/aws-s3-deny-except-bucket.json').read_text()
+        tree = parse_aws(source)
+        tree['children'].reverse()
+        with closing(psycopg2.connect(DSN)) as connection:
+            with connection, connection.cursor() as cursor:
+                cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
+            root_id = write_policy_tree(connection, tree)
+            loaded = load_policy_tree(connection, root_id)
+            self.assertEqual([child['child_position'] for child in loaded['children']], [0, 1])
+            self.assertEqual(loaded, parse_aws(source))
+            self.assertEqual(emit_policy(loaded), json.loads(source))
+
     def test_exported_trees_survive_the_database(self):
         """A stored tree reads back unchanged, and an AWS tree still emits."""
         for generated, source, parser in PAIRS:

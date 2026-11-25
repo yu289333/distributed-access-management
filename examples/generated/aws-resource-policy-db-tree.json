@@ -12,6 +12,7 @@
   "condition_json": null,
   "condition_raw_type": "json",
   "effect": null,
+  "child_position": null,
   "children": [
     {
       "id": 1401,
@@ -26,7 +27,8 @@
       "condition_cel": null,
       "condition_json": null,
       "condition_raw_type": "json",
-      "effect": "allow",
+      "effect": null,
+      "child_position": null,
       "children": [
         {
           "id": 1402,
@@ -44,6 +46,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -64,6 +67,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -82,6 +86,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         }
       ]
@@ -99,7 +104,8 @@
       "condition_cel": null,
       "condition_json": null,
       "condition_raw_type": "json",
-      "effect": "allow",
+      "effect": null,
+      "child_position": null,
       "children": [
         {
           "id": 1406,
@@ -117,6 +123,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -135,6 +142,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -153,6 +161,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         }
       ]
@@ -170,7 +179,8 @@
       "condition_cel": null,
       "condition_json": null,
       "condition_raw_type": "json",
-      "effect": "allow",
+      "effect": null,
+      "child_position": null,
       "children": [
         {
           "id": 1410,
@@ -188,6 +198,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -209,6 +220,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -230,6 +242,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         },
         {
@@ -252,6 +265,7 @@
           },
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": []
         }
       ]

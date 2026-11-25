@@ -3,6 +3,7 @@
 Each node is a dictionary of policy-table columns plus a children list. Database
 IDs and parent IDs are assigned on insertion. OR with no children is empty/false;
 AND with no children is universal/true. NOT always has exactly one child.
+SUBTRACT has two operands, identified by child positions 0 and 1.
 
 Persistence lives in ``policyStore``, export in ``policyExport``, and the CLI in
 ``policyCli``; the wrappers below keep the historical imports working.
@@ -14,21 +15,21 @@ import json
 
 COLUMNS = ('name', 'display_name', 'comment', 'provider', 'provider_detail',
            'operator_onChildren', 'condition_raw', 'condition_cel', 'condition_json',
-           'condition_raw_type', 'effect')
-OPERATORS = {'AND', 'OR', 'NOT'}
+           'condition_raw_type', 'effect', 'child_position')
+OPERATORS = {'AND', 'OR', 'NOT', 'SUBTRACT'}
 
 
 def make_node(name, provider, provider_detail, operator_onChildren='AND', *, children=None,
               condition_json=None, condition_raw=None, condition_cel=None,
               display_name=None, comment=None, condition_raw_type=None,
-              effect=None):
+              effect=None, child_position=None):
     """Construct a node using only column names from db/policy.sql."""
     return dict(name=name, display_name=display_name, comment=comment,
                 provider=provider, provider_detail=provider_detail,
                 operator_onChildren=operator_onChildren, condition_raw=condition_raw,
                 condition_cel=condition_cel, condition_json=condition_json,
                 condition_raw_type=condition_raw_type or ('json' if condition_json is not None else None),
-                effect=effect,
+                effect=effect, child_position=child_position,
                 children=list(children) if children is not None else [])
 
 
@@ -46,9 +47,12 @@ def validate_tree(tree):
         if unknown:
             raise ValueError(f'Unknown policy fields: {sorted(unknown)}')
         if node.get('operator_onChildren') not in OPERATORS:
-            raise ValueError('Policy operator must be AND, OR, or NOT')
+            raise ValueError('Policy operator must be AND, OR, NOT, or SUBTRACT')
+        position = node.get('child_position')
+        if position is not None and (type(position) is not int or position < 0):
+            raise ValueError('child_position must be a nonnegative integer or None')
         for key in COLUMNS:
-            if key != 'condition_json' and node.get(key) is not None:
+            if key not in ('condition_json', 'child_position') and node.get(key) is not None:
                 if not isinstance(node[key], str):
                     raise ValueError(f'{key} must be text or None')
         children = node.get('children', [])
@@ -68,6 +72,9 @@ def validate_tree(tree):
             normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_raw_type'))
         for child in children:
             visit(child)
+        if node['operator_onChildren'] == 'SUBTRACT' and (
+                len(children) != 2 or {child.get('child_position') for child in children} != {0, 1}):
+            raise ValueError('SUBTRACT requires two children with child_position 0 and 1')
 
     visit(tree)
 
@@ -96,6 +103,11 @@ def _has_expression(node):
     return node.get('condition_json') is not None or node.get('condition_cel') is not None
 
 
+def _can_remove_group(node):
+    return (not _has_expression(node) and node.get('effect') is None
+            and node.get('child_position') is None)
+
+
 def canonicalize(tree):
     """Return a meaning-preserving reduced copy of a validated policy tree.
 
@@ -110,7 +122,7 @@ def canonicalize(tree):
     * a non-root structural node with exactly one child is replaced by it.
 
     Leaf expressions are never modified, so the set of predicates is preserved.
-    Nodes carrying an explicit effect are kept.
+    Nodes carrying an explicit effect or operand position are kept.
     Labels and per-node ``condition_raw`` text of eliminated nodes are dropped;
     the root keeps its own ``condition_raw``. Use this for a canonical form to
     compare or store, not as a substitute for the lossless tree.
@@ -122,12 +134,11 @@ def canonicalize(tree):
 def _canonical(node, *, is_root):
     node['children'] = [_canonical(child, is_root=False)
                         for child in node.get('children', [])]
-    if _has_expression(node):
+    if _has_expression(node) or node['operator_onChildren'] == 'SUBTRACT':
         return node
     kept = []
     for child in node['children']:
-        if (not _has_expression(child) and not child['children'] and
-                child.get('effect') is None and
+        if (_can_remove_group(child) and not child['children'] and
                 child['operator_onChildren'] == node['operator_onChildren'] and
                 node['operator_onChildren'] in ('AND', 'OR')):
             continue
@@ -135,21 +146,18 @@ def _canonical(node, *, is_root):
     spliced = []
     for child in kept:
         # NOT is not associative: NOT(NOT x) is x, not NOT(x's children).
-        if (not _has_expression(child) and child['operator_onChildren'] == node['operator_onChildren'] and
-                child.get('effect') is None and
+        if (_can_remove_group(child) and child['operator_onChildren'] == node['operator_onChildren'] and
                 node['operator_onChildren'] != 'NOT' and child.get('condition_raw') is None):
             spliced.extend(child['children'])
         else:
             spliced.append(child)
     node['children'] = spliced
     if (node['operator_onChildren'] == 'NOT' and len(node['children']) == 1
-            and node.get('effect') is None):
+            and _can_remove_group(node)):
         child = node['children'][0]
-        if (not _has_expression(child) and child['operator_onChildren'] == 'NOT'
-                and child.get('effect') is None):
+        if child['operator_onChildren'] == 'NOT' and _can_remove_group(child):
             node = child['children'][0]
-    if (not is_root and not _has_expression(node) and
-            node.get('effect') is None and
+    if (not is_root and _can_remove_group(node) and
             node['operator_onChildren'] != 'NOT' and len(node['children']) == 1):
         node = node['children'][0]
     return node

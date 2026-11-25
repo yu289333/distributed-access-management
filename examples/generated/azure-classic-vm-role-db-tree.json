@@ -12,6 +12,7 @@
   "condition_json": null,
   "condition_raw_type": "json",
   "effect": null,
+  "child_position": null,
   "children": [
     {
       "id": 862,
@@ -27,6 +28,7 @@
       "condition_json": null,
       "condition_raw_type": null,
       "effect": null,
+      "child_position": null,
       "children": [
         {
           "id": 863,
@@ -42,6 +44,7 @@
           "condition_json": null,
           "condition_raw_type": "json",
           "effect": null,
+          "child_position": null,
           "children": [
             {
               "id": 864,
@@ -57,6 +60,7 @@
               "condition_json": null,
               "condition_raw_type": null,
               "effect": null,
+              "child_position": null,
               "children": [
                 {
                   "id": 865,
@@ -72,6 +76,7 @@
                   "condition_json": null,
                   "condition_raw_type": null,
                   "effect": null,
+                  "child_position": null,
                   "children": [
                     {
                       "id": 866,
@@ -91,6 +96,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -111,6 +117,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -131,6 +138,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -151,6 +159,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -171,6 +180,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -191,6 +201,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -211,6 +222,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -231,6 +243,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -251,6 +264,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -271,6 +285,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -291,6 +306,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -311,6 +327,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -331,6 +348,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -351,6 +369,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -371,6 +390,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -391,6 +411,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     },
                     {
@@ -411,6 +432,7 @@
                       },
                       "condition_raw_type": "json",
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     }
                   ]
@@ -429,6 +451,7 @@
                   "condition_json": null,
                   "condition_raw_type": null,
                   "effect": null,
+                  "child_position": null,
                   "children": [
                     {
                       "id": 884,
@@ -444,6 +467,7 @@
                       "condition_json": null,
                       "condition_raw_type": null,
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     }
                   ]
@@ -464,6 +488,7 @@
               "condition_json": null,
               "condition_raw_type": null,
               "effect": null,
+              "child_position": null,
               "children": [
                 {
                   "id": 886,
@@ -479,6 +504,7 @@
                   "condition_json": null,
                   "condition_raw_type": null,
                   "effect": null,
+                  "child_position": null,
                   "children": []
                 },
                 {
@@ -495,6 +521,7 @@
                   "condition_json": null,
                   "condition_raw_type": null,
                   "effect": null,
+                  "child_position": null,
                   "children": [
                     {
                       "id": 888,
@@ -510,6 +537,7 @@
                       "condition_json": null,
                       "condition_raw_type": null,
                       "effect": null,
+                      "child_position": null,
                       "children": []
                     }
                   ]
@@ -538,6 +566,7 @@
       },
       "condition_raw_type": "json",
       "effect": null,
+      "child_position": null,
       "children": []
     }
   ]

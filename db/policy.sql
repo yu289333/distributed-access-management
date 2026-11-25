@@ -1,4 +1,4 @@
-CREATE TYPE setOperator AS ENUM ('OR', 'AND', 'NOT');
+CREATE TYPE setOperator AS ENUM ('OR', 'AND', 'NOT', 'SUBTRACT');
 
 create table policy (
     id  serial primary key,
@@ -13,5 +13,6 @@ create table policy (
     condition_cel text,
     condition_json jsonb,
     condition_raw_type text,
-    effect text
+    effect text,
+    child_position integer CHECK (child_position >= 0)
 );
