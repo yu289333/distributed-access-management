@@ -60,18 +60,25 @@ class ServerTests(unittest.TestCase):
 
     def test_parse_store_load_and_emit(self):
         source = json.loads((ROOT / 'examples/aws-ec2-readonly.json').read_text())
-        status, created = call(self.base + '/policies?provider=aws&name=ec2-readonly',
-                               method='POST', body=source)
-        self.assertEqual(status, 201)
-        self.created = [created['id']]
-        self.assertEqual(created['provider'], 'AWS')
-        self.assertGreater(created['nodes'], 1)
+        self.created = []
+        for option, expected in (('', 'Action.matches("^ec2:Describe.*$")'), ('&cel=false', None)):
+            with self.subTest(option=option):
+                status, created = call(
+                    self.base + '/policies?provider=aws&name=ec2-readonly' + option,
+                    method='POST', body=source)
+                self.assertEqual(status, 201)
+                self.created.append(created['id'])
+                self.assertEqual(created['provider'], 'AWS')
+                self.assertGreater(created['nodes'], 1)
 
-        status, payload = call(self.base + '/policies/%d' % created['id'])
-        self.assertEqual(status, 200)
-        self.assertEqual(payload['document'], source)
-        self.assertEqual(payload['tree']['name'], 'ec2-readonly')
-        self.assertEqual(len(payload['tree']['children']), 4)
+                status, payload = call(self.base + '/policies/%d' % created['id'])
+                self.assertEqual(status, 200)
+                self.assertEqual(payload['document'], source)
+                tree = payload['tree']
+                self.assertEqual(tree['name'], 'ec2-readonly')
+                self.assertEqual(len(tree['children']), 4)
+                self.assertEqual(tree['condition_raw'], json.dumps(source))
+                self.assertEqual(tree['children'][0]['children'][1]['condition_cel'], expected)
 
     def test_azure_tree_has_its_document(self):
         source = json.loads((ROOT / 'examples/azure-classic-vm-role.json').read_text())

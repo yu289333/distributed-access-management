@@ -3,19 +3,23 @@ import argparse
 import json
 import os
 from pathlib import Path
+from .conditions.cel import populate_condition_cel
 from .policyTree import validate_tree
-from .policyStore import write_policy_tree
+from .postgres.store import write_policy_tree
 
 
-def run_cli(parse_policy, argv=None):
-    """Shared command-line runner used by both provider entry modules."""
+def run_cli(parse_policy, argv=None, *, translate=None):
+    """Read, enrich, and optionally store a parsed policy."""
     parser = argparse.ArgumentParser(description=parse_policy.__doc__)
     parser.add_argument('file', type=Path, help='One JSON policy document')
     parser.add_argument('--name', help='Override the policy name')
     parser.add_argument('--dry-run', action='store_true', help='Print the tree without a database')
+    parser.add_argument('--no-cel', action='store_true', help='Skip CEL enrichment')
     args = parser.parse_args(argv)
     try:
         tree = parse_policy(args.file.read_text(encoding='utf-8-sig'), name=args.name)
+        if translate is not None and not args.no_cel:
+            populate_condition_cel(tree, translate=translate)
         validate_tree(tree)
     except (OSError, TypeError, ValueError) as exc:
         parser.error(str(exc))

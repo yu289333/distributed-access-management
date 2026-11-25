@@ -1,0 +1,1 @@
+"""AZURE policy adapter."""

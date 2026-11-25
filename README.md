@@ -37,7 +37,7 @@ the database `id` and `parent` values. Legacy `cloud`, `domain`, and `conditions
 fields are not part of this format.
 
 `condition_json` is a JSON expression stored as `jsonb`. Grouping nodes have NULL
-expressions, and leaves contain provider-specific predicates. `condition_cel` is populated for supported leaf predicates; grouping nodes keep
+expressions, and leaves contain provider-specific predicates. Optional CEL enrichment populates `condition_cel` for supported leaf predicates. Grouping nodes keep
 NULL. Unsupported syntax retains its JSON/raw source and an explicit conversion
 note in `comment`. The root's `condition_raw`
 preserves the full input, including metadata, scopes, policy language version,
@@ -349,19 +349,18 @@ Shared modules are separated by responsibility:
 | Module | Responsibility |
 | --- | --- |
 | `policyDocument.py` | Strict JSON document loading |
-| `conditionSource.py` | Original text, origin formats, format adapter registration |
-| `conditionFormat.py` | Literal/comparison formatting |
-| `awsCondition.py`, `azureCondition.py` | Provider-specific condition rendering |
-| `conditionExpression.py` | Source-to-expression dispatch and leaf population |
-| `policyTree.py` | Nodes and validation |
-| `policyStore.py` | Database inserts and transactions |
-| `policyExport.py` | Database trees with IDs and parent IDs |
-| `policyCli.py` | Shared parser CLI |
-| `convertConditions.py` | Convert stored leaf conditions |
+| `providers/aws/`, `providers/azure/`, `providers/gcp/` | Provider parsers, emitters, and provider-specific CEL translation where supported |
+| `conditions/source.py` | Source fragments, raw-format decoding, and format adapters |
+| `conditions/cel.py`, `conditions/format.py` | Optional tree enrichment and shared CEL formatting |
+| `policyTree.py` | Shared nodes, validation, and reduction |
+| `postgres/` | Database inserts, exports, and CEL backfill transactions |
+| `policyCli.py`, `server.py` | Read source, invoke the parser, optionally enrich with CEL, and handle output or storage |
 
-The provider entry modules compose these helpers. Existing `policyTree` public
-imports and `conditionCel.py` remain compatibility facades. The former
-`backfillCel.py` command is a deprecated wrapper around `convertConditions.py`.
+The provider package parsers return validated trees before CEL enrichment. The
+existing entry commands and AWS/Azure Python APIs still enrich by default. Use
+`--no-cel` on the CLI, `include_cel=False` on those Python entry points, or
+`cel=false` on HTTP imports to skip enrichment. Use `--dry-run` to print the
+tree without PostgreSQL. Existing import paths remain available.
 
 ```sh
 python -m src.convertConditions                 # preview missing conversions
@@ -379,12 +378,14 @@ returning the same condition object as the JSON representation. Native CEL raw
 text with `condition_raw_type='cel'` can pass through without inventing JSON. YAML
 and other formats are not yet implemented, and never guessed from the provider.
 
-AWS fields and Azure RBAC fields compare their original values, preserving case,
-arrays and nested objects. Examples are `Effect == "Allow"`, `Resource == "*"`,
+AWS scalar `Action` values containing `*` use anchored CEL regex matching.
+For example, `s3:*` becomes `Action.matches("^s3:.*$")`. Other AWS fields
+and Azure RBAC fields compare their original values, including arrays and
+nested objects. Examples are `Effect == "Allow"`, `Resource == "*"`,
 `dataActions == ["Microsoft.AppPlatform/Spring/eurekaService/read"]` and
-`assignableScopes == ["/", "/abc"]`. List equality includes item order. No request
-variables or wildcard expansion are introduced; these describe source values,
-not effective authorization decisions. NOT remains in the tree.
+`assignableScopes == ["/", "/abc"]`. List equality includes item order. These
+expressions operate at the leaf level. Policy effects and logical operators
+remain in the tree.
 
 Azure `field`/`equals` preserves the field alias verbatim, for example
 `Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true`.

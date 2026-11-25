@@ -96,3 +96,13 @@ class PolicyTreeTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(module.main([str(ROOT / 'examples' / filename), '--dry-run']), 0)
             policyTree.validate_tree(json.loads(output.getvalue()))
+
+    def test_dry_run_can_skip_cel_enrichment(self):
+        sample = str(ROOT / 'examples' / 'aws-ec2-readonly.json')
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(awsPolicyEntry.main([sample, '--dry-run', '--no-cel']), 0)
+        tree = json.loads(output.getvalue())
+        leaf = tree['children'][0]['children'][1]
+        self.assertEqual(leaf['condition_json'], {'Action': 'ec2:Describe*'})
+        self.assertEqual(leaf['condition_raw_type'], 'json')
+        self.assertIsNone(leaf['condition_cel'])

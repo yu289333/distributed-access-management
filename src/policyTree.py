@@ -64,7 +64,7 @@ def validate_tree(tree):
         except (TypeError, ValueError) as exc:
             raise ValueError('condition_json must be JSON serializable') from exc
         if node.get('condition_json') is not None and node.get('condition_raw') is not None:
-            from .conditionSource import normalize_condition
+            from .conditions.source import normalize_condition
             normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_raw_type'))
         for child in children:
             visit(child)
@@ -78,12 +78,12 @@ from .policyDocument import load_document
 
 
 def insert_policy_tree(*args, **kwargs):
-    from .policyStore import insert_policy_tree as implementation
+    from .postgres.store import insert_policy_tree as implementation
     return implementation(*args, **kwargs)
 
 
 def write_policy_tree(*args, **kwargs):
-    from .policyStore import write_policy_tree as implementation
+    from .postgres.store import write_policy_tree as implementation
     return implementation(*args, **kwargs)
 
 
@@ -156,24 +156,10 @@ def _canonical(node, *, is_root):
 
 
 def strip_database_ids(tree):
-    """Return a copy of a database export without ``id`` and ``parent_id``.
-
-    ``examples/generated/*.json`` are exports of stored trees: every node also
-    carries the row's primary key and its parent's key. Those fields are not part
-    of the tree schema, so an export must be stripped before it can be
-    validated, compared with parser output, or re-imported.
-    """
-    node = {key: deepcopy(value) for key, value in tree.items()
-            if key not in ('id', 'parent_id')}
-    node['children'] = [strip_database_ids(child)
-                        for child in tree.get('children', [])]
-    return node
+    from .postgres.export import strip_database_ids as implementation
+    return implementation(tree)
 
 
 def load_policy_tree(connection, root_id):
-    """Read one policy tree back as a validated tree without database ids."""
-    from .policyExport import export_policy_tree
-
-    tree = strip_database_ids(export_policy_tree(connection, root_id))
-    validate_tree(tree)
-    return tree
+    from .postgres.export import load_policy_tree as implementation
+    return implementation(connection, root_id)

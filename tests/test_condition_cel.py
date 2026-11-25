@@ -55,6 +55,19 @@ class CelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             condition_to_cel({'Effect': 'Allow'}, 'invalid raw', provider='AWS')
 
+    def test_aws_scalar_action_globs_match_entire_strings(self):
+        expression = self.aws({'Action': 's3:*'})
+        self.assertEqual(expression, 'Action.matches("^s3:.*$")')
+        env = Environment()
+        program = env.program(env.compile(expression))
+        self.assertTrue(program.evaluate({'Action': json_to_cel('s3:GetObject')}))
+        self.assertFalse(program.evaluate({'Action': json_to_cel('ec2:DescribeInstances')}))
+        self.assertFalse(program.evaluate({'Action': json_to_cel('other:s3:GetObject')}))
+
+        program = env.program(env.compile(self.aws({'Action': 's3:Get.*Object'})))
+        self.assertTrue(program.evaluate({'Action': json_to_cel('s3:Get.myObject')}))
+        self.assertFalse(program.evaluate({'Action': json_to_cel('s3:GetXmyObject')}))
+
     def test_azure_planes_and_fields(self):
         expression = condition_to_cel({'notActions': ['*/write']}, provider='Azure',
                                      provider_detail='Microsoft.Authorization/roleDefinitions')

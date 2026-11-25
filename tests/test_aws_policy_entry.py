@@ -7,6 +7,14 @@ from src.policyTree import validate_tree
 from policy_support import ROOT, documents, evaluate, walk
 
 
+def assert_field_cel(test, node):
+    key, value = next(iter(node['condition_json'].items()))
+    if key == 'Action' and isinstance(value, str) and '*' in value:
+        test.assertTrue(node['condition_cel'].startswith('Action.matches('))
+    else:
+        test.assertEqual(node['condition_cel'], key + ' == ' + json.dumps(value))
+
+
 class AwsParserTests(unittest.TestCase):
     def test_repository_examples_are_lossless(self):
         examples = list(documents('db/awsPolicies.txt'))
@@ -47,8 +55,7 @@ class AwsParserTests(unittest.TestCase):
                 expression = node['condition_json']
                 if expression is not None:
                     self.assertEqual(len(expression), 1)
-                    key, value = next(iter(expression.items()))
-                    self.assertEqual(node['condition_cel'], key + ' == ' + json.dumps(value))
+                    assert_field_cel(self, node)
                 elif node['children']:
                     self.assertIsNone(node['condition_cel'])
 
@@ -79,8 +86,7 @@ class AwsParserTests(unittest.TestCase):
                 self.assertEqual(tree['condition_raw'], raw)
                 for node in walk(tree):
                     if node['condition_json'] is not None:
-                        key, value = next(iter(node['condition_json'].items()))
-                        self.assertEqual(node['condition_cel'], key + ' == ' + json.dumps(value))
+                        assert_field_cel(self, node)
         trust = parse_policy((ROOT / 'examples/aws-ec2-trust-policy.json').read_text())
         self.assertFalse(any('Resource' in (n['condition_json'] or {}) for n in walk(trust)))
         tagged = parse_policy((ROOT / 'examples/aws-create-user-with-tags.json').read_text())
