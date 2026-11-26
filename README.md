@@ -25,7 +25,7 @@ The parsers and database writer are separate:
 | `src/azurePolicyEntry.py` | `parse_policy(source, name=None)` | Parse an Azure RBAC role or Azure Policy definition. |
 | `src/azurePolicyEmitter.py` | `emit_policy(tree)` (alias `emit_azure`) | Rebuild an Azure role or policy definition from an Azure policy tree. |
 | `src/gcpPolicyEmitter.py` | `emit_policy(tree)` (alias `emit_gcp`) | Rebuild a GCP IAM policy from a GCP policy tree. |
-| `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse a GCP IAM policy (bindings, members, roles, conditions). |
+| `src/gcpPolicyEntry.py` | `parse_policy(source, name=None, provider_detail='iam.googleapis.com')` | Parse GCP IAM allow policies and REST Unified Access Policies. |
 | `src/policyTree.py` | `make_node`, `validate_tree`, `canonicalize`, `strip_database_ids`, `insert_policy_tree`, `write_policy_tree`, `load_policy_tree` | Construct, validate, reduce, persist, and read back any provider's tree. |
 
 The parsers accept a JSON string or Python dictionary and return an independent
@@ -104,19 +104,27 @@ with `properties.permissions`, flattened CLI roles with `permissions`, and
 PowerShell roles with `Actions`/`NotActions`/`DataActions`/`NotDataActions`.
 For RBAC, `provider_detail = 'Microsoft.Authorization/roleDefinitions'`.
 
-Each permissions block is the union of two separate sets:
-`actions minus notActions`, and `dataActions minus notDataActions`. Permissions
-blocks are unioned. Exclusions apply only inside their block; they are not global
-denies and can be granted by another block or role. Each action pattern is a
-JSON leaf retaining its control/data-plane field name. Conditional permission
+Each permissions block has an AND node with a direct JSON leaf for each
+`actions`, `notActions`, `dataActions`, or `notDataActions` array present in
+the source. Explicit empty arrays remain leaves. Conditional permission
 blocks retain their native condition expression as an additional AND predicate.
 Assignable scopes describe where a role can be assigned; they are preserved in
 the original source, not treated as the scope of an actual role assignment.
 
+An Azure Policy assignment with an explicit `scope` has an AND root with
+separate condition leaves for `scope` and `notScopes`. An Azure RBAC deny assignment
+has an AND root with three children: `permissions`, `principals`, and
+`excludePrincipals`. The two principal arrays are separate condition leaves.
+The `permissions` subtree uses the same permission-array structure as role
+definitions.
+
 Azure Policy definitions use
 `provider_detail = 'Microsoft.Authorization/policyDefinitions'`. Their `if`
 expression is parsed recursively: allOf becomes AND, anyOf becomes OR, and not
-becomes NOT. Other conditions remain native JSON leaves. The root contains both the applicability (`if`) subtree and a `then` subtree.
+becomes NOT. Other conditions remain native JSON leaves. In particular,
+`notIn`, `notLike`, and `notContains` retain their original comparison and
+values without CEL translation. The root contains both the applicability
+(`if`) subtree and a `then` subtree.
 The latter uses AND groups for its content and nested details, with individual
 JSON/raw leaves for effect and each detail field, following
 `examples/azure-audit-vm-sql.json`. The complete source, including parameters,
@@ -127,7 +135,7 @@ Grouping nodes retain NULL CEL; detail metadata receives equality expressions. t
 `effect == "audit"` (or its source value), with a string variable `effect` supplied
 to the evaluator. This comparison describes the outcome; it does not execute it. `allOf` maps to AND
 and `not` maps to NOT in the tree.
-Locks, ARM deployment templates, initiatives, and assignments are not parsed.
+Locks, ARM deployment templates, and initiative definitions are not parsed.
 
 ### Azure emitting
 
@@ -143,6 +151,9 @@ supports the REST (`properties.permissions`), flattened CLI (`permissions`), and
 PowerShell (`Actions`/`NotActions`/...) shapes, chosen from the raw document. For
 policy definitions, `if` becomes `allOf`/`anyOf`/`not` again and `then` is rebuilt
 from the effect and detail leaves.
+The emitter reads direct permission leaves and legacy grouped permission
+trees. For Azure Policy assignments it rebuilds the scope fields,
+and for Azure deny assignments it rebuilds the principal and permission fields.
 
 Every node must have `provider = 'Azure'`, and the tree must have the parser's
 shape. Canonicalized Azure trees are not accepted: canonicalization drops the
@@ -162,9 +173,16 @@ Bindings are unioned. Each binding is an AND of one `role` leaf, an OR of its
 original JSON is preserved in its `condition_raw`; the root's `condition_raw`
 preserves the full input, including `version`, `etag`, and `auditConfigs`.
 
+REST Unified Access Policies use `details.rules`. The parser creates a
+SUBTRACT root with an OR group of ALLOW rules at `child_position = 0` and an OR
+group of DENY rules at position 1. A policy with only one effect has an empty
+OR group for the other operand. Each rule is an AND group of individual fields,
+including the original `effect` field. Rule positions retain source order
+across the two operands for emission.
+
 IAM Conditions are kept as native JSON: the CEL `expression` text is stored
 unchanged and is not parsed, translated, or written to `condition_cel`, which
-remains NULL. Deny policies, principal access boundary policies, and the
+remains NULL. Standalone IAM deny policies, principal access boundary policies, and the
 contents of `auditConfigs` are not parsed.
 
 ### GCP emitting
@@ -172,8 +190,9 @@ contents of `auditConfigs` are not parsed.
 `gcpPolicyEmitter.emit_policy(tree)` (also exported as `emit_gcp`) rebuilds the
 GCP IAM policy from a tree produced by `gcpPolicyEntry.parse_policy` or read back
 from the database. Bindings are rebuilt from the role, members, and optional IAM
-condition leaves, so edits are reflected; `version` and `etag` come from the
-root's `condition_raw`. Every node must have `provider = 'GCP'`. It is the
+condition leaves. Unified Access Policy rules are rebuilt from their field
+leaves and emitted in source order. Outer metadata comes from the root's
+`condition_raw`. Every node must have `provider = 'GCP'`. It is the
 outbound half of the GCP morph; it does not turn AWS or Azure trees into GCP
 policies.
 

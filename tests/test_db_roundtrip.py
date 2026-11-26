@@ -9,6 +9,8 @@ from src.awsPolicyEmitter import emit_policy
 from src.azurePolicyEmitter import emit_policy as emit_azure
 from src.awsPolicyEntry import parse_policy as parse_aws
 from src.azurePolicyEntry import parse_policy as parse_azure
+from src.gcpPolicyEmitter import emit_policy as emit_gcp
+from src.gcpPolicyEntry import parse_policy as parse_gcp
 from src.policyTree import load_policy_tree, strip_database_ids, write_policy_tree
 from policy_support import ROOT
 
@@ -46,6 +48,24 @@ class DatabaseRoundTripTests(unittest.TestCase):
             self.assertEqual([child['child_position'] for child in loaded['children']], [0, 1])
             self.assertEqual(loaded, parse_aws(source))
             self.assertEqual(emit_policy(loaded), json.loads(source))
+
+    def test_gcp_unified_access_preserves_operands_and_rule_order(self):
+        principal = 'principal://goog/subject/alice@example.com'
+        source = {'details': {'rules': [
+            {'effect': 'DENY', 'principals': [principal],
+             'operation': {'permissions': ['compute.googleapis.com/instances.delete']}},
+            {'effect': 'ALLOW', 'principals': [principal],
+             'operation': {'permissions': ['role:roles/compute.admin']}},
+        ]}}
+        tree = parse_gcp(source)
+        tree['children'].reverse()
+        with closing(psycopg2.connect(DSN)) as connection:
+            with connection, connection.cursor() as cursor:
+                cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
+            root_id = write_policy_tree(connection, tree)
+            loaded = load_policy_tree(connection, root_id)
+            self.assertEqual(loaded, parse_gcp(source))
+            self.assertEqual(emit_gcp(loaded), source)
 
     def test_exported_trees_survive_the_database(self):
         """A stored tree reads back unchanged, and an AWS tree still emits."""

@@ -35,12 +35,42 @@ class AzureEmitterTests(unittest.TestCase):
 
     def test_rbac_edits_are_reflected(self):
         tree = parse_policy((ROOT / 'examples/azure-classic-vm-role.json').read_text())
-        actions = tree['children'][0]['children'][0]['children'][0]['children'][0]
-        leaf = actions['children'][0]
+        leaf = tree['children'][0]['children'][0]['children'][0]
         leaf['condition_json']['actions'] = ['Microsoft.Foo/read']
         leaf['condition_raw'] = None
         document = emit_policy(tree)
         self.assertEqual(document['permissions'][0]['actions'][0], 'Microsoft.Foo/read')
+
+    def test_rbac_emits_direct_permission_leaves_without_source(self):
+        source = {'permissions': [{'actions': ['read'], 'notActions': [],
+                                   'dataActions': ['view'], 'notDataActions': ['delete']}]}
+        tree = parse_policy(source)
+        tree['condition_raw'] = None
+        tree['children'][0]['children'].reverse()
+        self.assertEqual(emit_policy(tree), source)
+
+    def test_policy_assignment_round_trip_reads_edited_exclusions(self):
+        source = {'type': 'Microsoft.Authorization/policyAssignments', 'scope': '/subscriptions/example',
+                  'properties': {'policyDefinitionId': '/example/policy', 'notScopes': ['/example/old']}}
+        tree = parse_policy(source)
+        self.assertEqual(emit_policy(tree), source)
+        excluded = tree['children'][1]
+        excluded['condition_json']['notScopes'] = ['/example/new']
+        tree['children'].reverse()
+        self.assertEqual(emit_policy(tree)['properties']['notScopes'], ['/example/new'])
+
+    def test_deny_assignment_round_trip_reads_edited_exclusions(self):
+        source = {'type': 'Microsoft.Authorization/denyAssignments', 'properties': {
+            'principals': [{'id': 'principal', 'type': 'Group'}],
+            'excludePrincipals': [{'id': 'old', 'type': 'User'}],
+            'scope': '/subscriptions/example',
+            'permissions': [{'actions': ['write'], 'notActions': ['read']}]}}
+        tree = parse_policy(source)
+        self.assertEqual(emit_policy(tree), source)
+        excluded = tree['children'][2]
+        excluded['condition_json']['excludePrincipals'][0]['id'] = 'new'
+        tree['children'].reverse()
+        self.assertEqual(emit_policy(tree)['properties']['excludePrincipals'], [{'id': 'new', 'type': 'User'}])
 
     def test_policy_definition_edits_are_reflected(self):
         tree = parse_policy((ROOT / 'examples/azure-audit-vm.json').read_text())

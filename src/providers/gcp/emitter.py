@@ -5,8 +5,7 @@ This is the outbound half of the GCP morph. It accepts a tree produced by
 and returns the GCP IAM policy document. It is deliberately narrow:
 
 * only GCP trees are accepted; an AWS or Azure tree is not a cross-cloud input,
-* bindings are rebuilt from the tree's role, members, and optional IAM condition
-  leaves, so edits are reflected,
+* bindings and Unified Access Policy rules are rebuilt from condition leaves,
 * outer metadata (version, etag) is recovered from the root's ``condition_raw``.
 """
 
@@ -16,6 +15,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from ...policyTree import validate_tree
+from .parser import _check_access_rule, _has_access_rules
 
 
 def _check_provider(tree):
@@ -64,11 +64,56 @@ def _binding(node):
     return binding
 
 
+def _access_rules(tree):
+    rules = {}
+    for operand in tree['children']:
+        if operand['operator_onChildren'] != 'OR':
+            raise ValueError('GCP Unified Access Policy requires OR operands')
+        effect = ('ALLOW', 'DENY')[operand['child_position']]
+        for group in operand.get('children', []):
+            position = group.get('child_position')
+            if position is None or position in rules:
+                raise ValueError('GCP Unified Access Policy rules require distinct source positions')
+            rule = {}
+            for leaf in group.get('children', []):
+                expression = leaf.get('condition_json')
+                if not isinstance(expression, dict) or len(expression) != 1:
+                    raise ValueError('Expected a single-field GCP Unified Access Policy rule leaf')
+                if rule.keys() & expression.keys():
+                    raise ValueError('Duplicate GCP Unified Access Policy rule field')
+                rule.update(deepcopy(expression))
+            _check_access_rule(rule, position + 1)
+            if rule['effect'] != effect:
+                raise ValueError('GCP Unified Access Policy rule effect disagrees with its operand')
+            rules[position] = rule
+    if not rules:
+        raise ValueError('GCP Unified Access Policy requires at least one rule')
+    return [rules[position] for position in sorted(rules)]
+
+
+def _emit_access_policy(tree, document):
+    target = document
+    if not _has_access_rules(document):
+        for wrapper in ('policy', 'Policy'):
+            candidate = document.get(wrapper)
+            if isinstance(candidate, dict) and _has_access_rules(candidate):
+                target = candidate
+                break
+    details = target.get('details')
+    if not isinstance(details, dict):
+        details = {}
+        target['details'] = details
+    details['rules'] = _access_rules(tree)
+    return document
+
+
 def emit_policy(tree):
     """Return the GCP IAM policy reconstructed from a GCP policy tree."""
     validate_tree(tree)
     _check_provider(tree)
     document = _raw(tree)
+    if tree['operator_onChildren'] == 'SUBTRACT':
+        return _emit_access_policy(tree, document)
     document['bindings'] = [_binding(node) for node in tree.get('children', [])]
     return document
 

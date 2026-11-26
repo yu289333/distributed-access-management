@@ -8,6 +8,7 @@ import unittest
 from src.awsPolicyEntry import parse_policy as parse_aws
 from src.gcpPolicyEmitter import emit_gcp, emit_policy, main
 from src.gcpPolicyEntry import parse_policy
+from src.policyTree import canonicalize
 from policy_support import ROOT
 
 
@@ -23,6 +24,27 @@ class GcpEmitterTests(unittest.TestCase):
         role['condition_raw'] = None
         document = emit_policy(tree)
         self.assertEqual(document['bindings'][0]['role'], 'roles/storage.admin')
+
+    def test_unified_access_rules_round_trip_in_source_order(self):
+        principal = 'principal://goog/subject/alice@example.com'
+        source = {'displayName': 'Compute policy', 'details': {'rules': [
+            {'effect': 'ALLOW', 'principals': [principal],
+             'operation': {'permissions': ['role:roles/compute.admin']}},
+            {'effect': 'DENY', 'principals': [principal],
+             'operation': {'permissions': ['compute.googleapis.com/instances.delete']}},
+            {'effect': 'ALLOW', 'principals': [principal],
+             'operation': {'permissions': ['compute.googleapis.com/instances.get']}},
+        ]}}
+        tree = canonicalize(parse_policy(json.dumps(source)))
+        self.assertEqual(emit_policy(tree), source)
+        allow, deny = tree['children']
+        operation = deny['children'][0]['children'][2]
+        operation['condition_json']['operation']['permissions'] = ['compute.googleapis.com/instances.stop']
+        operation['condition_raw'] = None
+        tree['children'] = [deny, allow]
+        emitted = emit_policy(tree)
+        source['details']['rules'][1]['operation']['permissions'] = ['compute.googleapis.com/instances.stop']
+        self.assertEqual(emitted, source)
 
     def test_non_gcp_trees_are_rejected(self):
         tree = parse_aws({'Statement': {'Effect': 'Allow', 'Action': '*',

@@ -82,6 +82,37 @@ class GcpParserTests(unittest.TestCase):
         self.assertEqual(conditions[0]['expression'], expression)
         self.assertTrue(all(node['condition_cel'] is None for node in walk(tree)))
 
+    def test_unified_access_policy_has_positioned_allow_and_deny_operands(self):
+        denied = {'effect': 'DENY', 'principals': ['principal://goog/subject/alice@example.com'],
+                  'operation': {'permissions': ['compute.googleapis.com/instances.delete']}}
+        allowed = {'effect': 'ALLOW', 'principals': ['principal://goog/subject/alice@example.com'],
+                   'operation': {'permissions': ['role:roles/compute.admin']},
+                   'conditions': {'iam.googleapis.com': {'expression': 'request.time < timestamp("2027-01-01T00:00:00Z")'}}}
+        source = json.dumps({'details': {'rules': [denied, allowed]}})
+        tree = parse_policy(source)
+        self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
+        for position, (rule, source_position) in enumerate(((allowed, 1), (denied, 0))):
+            operand = tree['children'][position]
+            self.assertEqual(operand['child_position'], position)
+            self.assertEqual(operand['operator_onChildren'], 'OR')
+            group, = operand['children']
+            self.assertEqual(group['child_position'], source_position)
+            self.assertEqual(group['operator_onChildren'], 'AND')
+            for leaf, (key, value) in zip(group['children'], rule.items(), strict=True):
+                self.assertEqual(leaf['condition_raw_type'], 'json')
+                self.assertEqual(json.loads('{' + leaf['condition_raw'] + '}'), {key: value})
+                self.assertEqual(leaf['condition_json'], {key: value})
+                self.assertIsNone(leaf['condition_cel'])
+
+    def test_unified_access_policy_with_one_effect_has_an_empty_operand(self):
+        for effect, empty_position in (('ALLOW', 1), ('DENY', 0)):
+            with self.subTest(effect=effect):
+                tree = parse_policy({'details': {'rules': [{
+                    'effect': effect, 'principals': ['principal://goog/subject/alice@example.com'],
+                    'operation': {'permissions': ['compute.googleapis.com/instances.delete']},
+                }]}})
+                self.assertEqual(tree['children'][empty_position]['children'], [])
+
     def test_policy_wrapper_and_provider_detail(self):
         source = {'policy': {'version': 1, 'bindings': [
             {'role': 'roles/viewer', 'members': ['user:alice@example.com']}]}}
@@ -104,6 +135,8 @@ class GcpParserTests(unittest.TestCase):
     def test_invalid_shapes_are_rejected(self):
         valid = {'role': 'roles/viewer', 'members': ['user:alice@example.com']}
         for source in [[], '[]', {}, {'bindings': []}, {'bindings': [None]},
+                       {'details': {'rules': []}}, {'details': {'rules': [{}]}},
+                       {'details': {'rules': [{'effect': 'OTHER'}]}},
                        {'bindings': [{'members': valid['members']}]},
                        {'bindings': [{'role': '', 'members': valid['members']}]},
                        {'bindings': [{'role': 'roles/viewer', 'members': []}]},
