@@ -37,11 +37,11 @@ class GcpEmitterTests(unittest.TestCase):
         ]}}
         tree = canonicalize(parse_policy(json.dumps(source)))
         self.assertEqual(emit_policy(tree), source)
-        allow, deny = tree['children']
-        operation = deny['children'][0]['children'][2]
+        allow, excluded = tree['children']
+        operation = excluded['children'][0]['children'][2]
         operation['condition_json']['operation']['permissions'] = ['compute.googleapis.com/instances.stop']
         operation['condition_raw'] = None
-        tree['children'] = [deny, allow]
+        tree['children'] = [excluded, allow]
         emitted = emit_policy(tree)
         source['details']['rules'][1]['operation']['permissions'] = ['compute.googleapis.com/instances.stop']
         self.assertEqual(emitted, source)

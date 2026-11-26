@@ -76,13 +76,6 @@ def _leaf_values(node, key):
     return values
 
 
-def _subtract_operands(tree):
-    if tree.get('operator_onChildren') != 'SUBTRACT' or any(
-            operand.get('operator_onChildren') != 'OR' for operand in tree.get('children', [])):
-        raise ValueError(f'Expected SUBTRACT with OR operands at {tree.get("name")!r}')
-    return sorted(tree['children'], key=lambda operand: operand['child_position'])
-
-
 def _block(node, original):
     condition = condition_version = None
     if node.get('name', '').startswith('Conditional permission block'):
@@ -105,12 +98,9 @@ def _block(node, original):
         parts = plane.get('children', [])
         if len(parts) != 2:
             raise ValueError(f'Unexpected Azure permission plane: {plane.get("name")!r}')
-        if plane.get('operator_onChildren') == 'SUBTRACT':
-            included, excluded = _subtract_operands(plane)
-        else:
-            # Old exports wrap the exclusion group in a NOT node.
-            included, negated = parts
-            excluded = negated['children'][0] if negated.get('children') else negated
+        # Old exports wrap the exclusion group in a NOT node.
+        included, negated = parts
+        excluded = negated['children'][0] if negated.get('children') else negated
         for operand, key in ((included, include), (excluded, exclude)):
             values = _leaf_values(operand, key)
             if values or key in original:

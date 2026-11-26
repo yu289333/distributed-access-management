@@ -65,12 +65,19 @@ def _binding(node):
 
 
 def _access_rules(tree):
+    children = tree['children']
+    if len(children) != 2:
+        raise ValueError('GCP Unified Access Policy requires two root groups')
+    allowed, excluded = children
+    if allowed['operator_onChildren'] == 'NOT':
+        allowed, excluded = excluded, allowed
+    if excluded['operator_onChildren'] != 'NOT':
+        raise ValueError('GCP Unified Access Policy requires a NOT group for DENY rules')
+    denied, = excluded['children']
     rules = {}
-    for operand in tree['children']:
-        if operand['operator_onChildren'] != 'OR':
-            raise ValueError('GCP Unified Access Policy requires OR operands')
-        effect = ('ALLOW', 'DENY')[operand['child_position']]
-        for group in operand.get('children', []):
+    for operand, effect in ((allowed, 'ALLOW'), (denied, 'DENY')):
+        groups = operand['children'] if operand['operator_onChildren'] == 'OR' else [operand]
+        for group in groups:
             position = group.get('child_position')
             if position is None or position in rules:
                 raise ValueError('GCP Unified Access Policy rules require distinct source positions')
@@ -112,7 +119,7 @@ def emit_policy(tree):
     validate_tree(tree)
     _check_provider(tree)
     document = _raw(tree)
-    if tree['operator_onChildren'] == 'SUBTRACT':
+    if tree['operator_onChildren'] == 'AND':
         return _emit_access_policy(tree, document)
     document['bindings'] = [_binding(node) for node in tree.get('children', [])]
     return document

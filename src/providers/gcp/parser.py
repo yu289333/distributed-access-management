@@ -73,9 +73,11 @@ def _access_policy_tree(node, name, rules):
         groups[rule['effect']].append(node(
             f'Rule {position + 1}', children=leaves, child_position=position,
             condition_raw=json.dumps(rule)))
-    return node(name, 'SUBTRACT', children=[
-        node('ALLOW rules', 'OR', children=groups['ALLOW'], child_position=0),
-        node('DENY rules', 'OR', children=groups['DENY'], child_position=1),
+    return node(name, 'AND', children=[
+        node('ALLOW rules', 'OR', children=groups['ALLOW']),
+        node('Exclude DENY rules', 'NOT', children=[
+            node('DENY rules', 'OR', children=groups['DENY']),
+        ]),
     ])
 
 

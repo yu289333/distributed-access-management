@@ -78,10 +78,12 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
     operator = 'OR'
     children = allowed
     if denied:
-        operator = 'SUBTRACT'
+        operator = 'AND'
         children = [
-            node('Allow statements', 'OR', children=allowed, child_position=0),
-            node('Deny statements', 'OR', children=denied, child_position=1),
+            node('Allow statements', 'OR', children=allowed),
+            node('Exclude deny statements', 'NOT', children=[
+                node('Deny statements', 'OR', children=denied),
+            ]),
         ]
     root = node(policy_name, operator, children=children,
                 condition_raw=source if isinstance(source, str) else json.dumps(original))

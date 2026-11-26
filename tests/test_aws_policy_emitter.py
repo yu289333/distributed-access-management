@@ -55,13 +55,14 @@ class AwsEmitterTests(unittest.TestCase):
                 expected = source['Document'] if 'Document' in source else source
                 self.assertEqual(emit_policy(parse_policy(source)), expected)
 
-    def test_canonicalized_trees_still_emit(self):
-        for path in (ROOT / 'examples').glob('aws-*.json'):
-            with self.subTest(path=path.name):
-                source = json.loads(path.read_text())
-                expected = source['Document'] if 'Document' in source else source
-                tree = canonicalize(parse_policy(source))
-                self.assertEqual(emit_policy(tree), expected)
+    def test_reducing_a_deny_only_policy_preserves_its_source_tree_for_emission(self):
+        source = (ROOT / 'examples/aws-deny-outside-regions.json').read_text()
+        original = parse_policy(source)
+        reduced = canonicalize(original)
+        self.assertEqual(reduced['operator_onChildren'], 'OR')
+        self.assertEqual(reduced['children'], [])
+        self.assertEqual(reduced['condition_raw'], source)
+        self.assertEqual(emit_policy(original), json.loads(source))
 
     def test_order_and_effects_survive_a_round_trip(self):
         source = {'Version': '2012-10-17', 'Id': 'mixed', 'Statement': [
@@ -74,14 +75,15 @@ class AwsEmitterTests(unittest.TestCase):
         tree = parse_policy(source)
         document = emit_policy(tree)
         self.assertEqual(document, source)
+        allowed, excluded = tree['children']
         self.assertEqual([[group['name'] for group in operand['children']]
-                          for operand in tree['children']],
+                          for operand in (allowed, excluded['children'][0])],
                          [['allow-read', 'allow-write'], ['deny-prod']])
 
     def test_deny_only_policy_round_trips(self):
         source = {'Statement': {'Effect': 'Deny', 'Action': '*', 'Resource': '*'}}
         tree = parse_policy(source)
-        self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
+        self.assertEqual(tree['operator_onChildren'], 'AND')
         self.assertEqual(tree['children'][0]['children'], [])
         document = emit_policy(tree)
         self.assertEqual(document['Statement'], source['Statement'])
@@ -144,7 +146,7 @@ class AwsEmitterTests(unittest.TestCase):
         base = {'Statement': {'Effect': 'Allow', 'Action': '*', 'Resource': '*'}}
         xor_tree = parse_policy(base)
         xor_tree['operator_onChildren'] = 'XOR'
-        with self.assertRaisesRegex(ValueError, 'Policy operator must be AND, OR, NOT, or SUBTRACT'):
+        with self.assertRaisesRegex(ValueError, 'Policy operator must be AND, OR, or NOT'):
             emit_policy(xor_tree)
 
         and_tree = parse_policy(base)

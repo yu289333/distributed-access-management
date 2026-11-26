@@ -98,6 +98,22 @@ class ServerTests(unittest.TestCase):
         _, reduced = call(self.base + '/policies/%d?canonical=1' % created['id'])
         self.assertLessEqual(self._nodes(reduced['tree']), self._nodes(plain['tree']))
 
+    def test_canonical_import_reports_reduced_count_and_retains_original_policy(self):
+        source = json.loads((ROOT / 'examples/aws-deny-outside-regions.json').read_text())
+        status, created = call(self.base + '/policies?provider=aws&canonical=1',
+                               method='POST', body=source)
+        self.assertEqual(status, 201)
+        self.created = [created['id']]
+        self.assertEqual(created['nodes'], 1)
+        url = self.base + '/policies/%d' % created['id']
+        status, original = call(url)
+        self.assertEqual(status, 200)
+        self.assertGreater(self._nodes(original['tree']), created['nodes'])
+        status, reduced = call(url + '?canonical=1')
+        self.assertEqual(status, 200)
+        self.assertEqual(self._nodes(reduced['tree']), created['nodes'])
+        self.assertEqual(reduced['document'], source)
+
     def test_bad_requests(self):
         self.assertEqual(400, call(self.base + '/policies?provider=nope', method='POST',
                                    body={'Statement': []})[0])

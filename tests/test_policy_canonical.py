@@ -1,4 +1,5 @@
 import json
+from itertools import product
 import unittest
 
 from src.awsPolicyEntry import parse_policy as parse_aws
@@ -30,7 +31,52 @@ def contents(expression):
     return hash(json.dumps(expression, sort_keys=True)) % 2 == 0
 
 
+def boolean_tree(expression):
+    if isinstance(expression, bool):
+        return make_node(None, 'AWS', 'arn:aws', 'AND' if expression else 'OR')
+    if isinstance(expression, str):
+        return make_node(expression, 'AWS', 'arn:aws', condition_json={'symbol': expression})
+    operator, *children = expression
+    return make_node(None, 'AWS', 'arn:aws', operator,
+                     children=[boolean_tree(child) for child in children])
+
+
+def boolean_shape(tree):
+    if tree.get('condition_json') is not None:
+        return tree['condition_json']['symbol']
+    operator = tree['operator_onChildren']
+    if not tree['children']:
+        return operator == 'AND'
+    return (operator, *(boolean_shape(child) for child in tree['children']))
+
+
 class CanonicalizeTests(unittest.TestCase):
+    def test_boolean_reductions_shrink_without_changing_truth_values(self):
+        cases = [
+            (('AND', 'A', True), 'A'), (('OR', 'A', False), 'A'),
+            (('AND', 'A', False), False), (('OR', 'A', True), True),
+            (('AND', 'A', 'A'), 'A'), (('OR', 'A', 'A'), 'A'),
+            (('AND', 'A', ('NOT', 'A')), False), (('OR', 'A', ('NOT', 'A')), True),
+            (('AND', 'A', ('OR', 'A', 'B')), 'A'), (('OR', 'A', ('AND', 'A', 'B')), 'A'),
+            (('AND', ('NOT', 'A'), ('NOT', 'B')), ('NOT', ('OR', 'A', 'B'))),
+            (('OR', ('NOT', 'A'), ('NOT', 'B')), ('NOT', ('AND', 'A', 'B'))),
+            (('AND', 'A', ('NOT', False)), 'A'),
+            (('AND', ('NOT', 'A'), ('NOT', ('OR', 'B', 'C'))), ('NOT', ('OR', 'A', 'B', 'C'))),
+        ]
+        for expression, expected in cases:
+            with self.subTest(expression=expression):
+                original = boolean_tree(expression)
+                reduced = canonicalize(original)
+                self.assertEqual(boolean_shape(reduced), expected)
+                self.assertLess(len(nodes(reduced)), len(nodes(original)))
+                self.assertEqual(reduced, canonicalize(reduced))
+                validate_tree(reduced)
+                for values in product((False, True), repeat=3):
+                    assignment = dict(zip('ABC', values, strict=True))
+                    def predicate(leaf):
+                        return assignment[leaf['symbol']]
+                    self.assertEqual(evaluate(original, predicate), evaluate(reduced, predicate))
+
     def test_group_with_explicit_effect_is_preserved(self):
         for effect in ('allow', 'deny'):
             with self.subTest(effect=effect):
@@ -57,7 +103,7 @@ class CanonicalizeTests(unittest.TestCase):
             with self.subTest(name=name):
                 reduced = canonicalize(tree)
                 validate_tree(reduced)
-                self.assertCountEqual(leaves(reduced), leaves(tree))
+                self.assertTrue(all(leaf in leaves(tree) for leaf in leaves(reduced)))
                 for predicate in (lambda expression: True,
                                   lambda expression: False,
                                   contents):
@@ -102,6 +148,22 @@ class CanonicalizeTests(unittest.TestCase):
         reduced = canonicalize(tree)
         self.assertEqual(reduced['condition_raw'], source)
         self.assertEqual(reduced['name'], tree['name'])
+
+    def test_root_replacement_keeps_source_and_leaf_raw_text(self):
+        tree = boolean_tree(('NOT', ('NOT', 'A')))
+        tree['condition_raw'] = '{"policy": "original source"}'
+        leaf = tree['children'][0]['children'][0]
+        leaf['condition_raw'] = '"symbol": "A"'
+        reduced = canonicalize(tree)
+        self.assertEqual(reduced['operator_onChildren'], 'AND')
+        self.assertEqual(reduced['condition_raw'], tree['condition_raw'])
+        self.assertEqual(reduced['children'][0]['condition_raw'], leaf['condition_raw'])
+        validate_tree(reduced)
+
+    def test_protected_descendant_survives_annihilator(self):
+        tree = boolean_tree(('AND', False, ('OR', 'A', 'B')))
+        tree['children'][1]['children'][0]['child_position'] = 0
+        self.assertEqual(canonicalize(tree), tree)
 
     def test_invalid_trees_are_rejected(self):
         with self.assertRaises(ValueError):

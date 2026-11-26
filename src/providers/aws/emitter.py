@@ -46,17 +46,15 @@ def _statement_groups(tree):
     children = tree.get('children', [])
     if tree.get('operator_onChildren') == 'OR':
         return children, []
-    if tree.get('operator_onChildren') == 'SUBTRACT':
-        allowed, denied = sorted(children, key=lambda child: child['child_position'])
-        if all(group.get('operator_onChildren') == 'OR' for group in (allowed, denied)):
-            return allowed.get('children', []), denied.get('children', [])
     if tree.get('operator_onChildren') == 'AND' and len(children) == 2:
         allowed, excluded = children
+        if allowed.get('operator_onChildren') == 'NOT':
+            allowed, excluded = excluded, allowed
         denied = excluded.get('children', [])
         if excluded.get('operator_onChildren') == 'NOT' and len(denied) == 1:
             return _group(allowed, 'allows'), _group(denied[0], 'denies')
-    raise ValueError('Unexpected AWS tree shape; expected OR(statements), '
-                     'SUBTRACT(OR(allows), OR(denies)), or the legacy AND/NOT form')
+    raise ValueError('Unexpected AWS tree shape; expected OR(statements) or '
+                     'AND(OR(allows), NOT(OR(denies)))')
 
 
 def _sid(node):

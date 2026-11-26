@@ -82,7 +82,7 @@ class GcpParserTests(unittest.TestCase):
         self.assertEqual(conditions[0]['expression'], expression)
         self.assertTrue(all(node['condition_cel'] is None for node in walk(tree)))
 
-    def test_unified_access_policy_has_positioned_allow_and_deny_operands(self):
+    def test_unified_access_policy_uses_and_with_negated_deny_group(self):
         denied = {'effect': 'DENY', 'principals': ['principal://goog/subject/alice@example.com'],
                   'operation': {'permissions': ['compute.googleapis.com/instances.delete']}}
         allowed = {'effect': 'ALLOW', 'principals': ['principal://goog/subject/alice@example.com'],
@@ -90,10 +90,11 @@ class GcpParserTests(unittest.TestCase):
                    'conditions': {'iam.googleapis.com': {'expression': 'request.time < timestamp("2027-01-01T00:00:00Z")'}}}
         source = json.dumps({'details': {'rules': [denied, allowed]}})
         tree = parse_policy(source)
-        self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
-        for position, (rule, source_position) in enumerate(((allowed, 1), (denied, 0))):
-            operand = tree['children'][position]
-            self.assertEqual(operand['child_position'], position)
+        self.assertEqual(tree['operator_onChildren'], 'AND')
+        allow_group, excluded = tree['children']
+        self.assertEqual(excluded['operator_onChildren'], 'NOT')
+        deny_group, = excluded['children']
+        for operand, rule, source_position in ((allow_group, allowed, 1), (deny_group, denied, 0)):
             self.assertEqual(operand['operator_onChildren'], 'OR')
             group, = operand['children']
             self.assertEqual(group['child_position'], source_position)
@@ -105,13 +106,15 @@ class GcpParserTests(unittest.TestCase):
                 self.assertIsNone(leaf['condition_cel'])
 
     def test_unified_access_policy_with_one_effect_has_an_empty_operand(self):
-        for effect, empty_position in (('ALLOW', 1), ('DENY', 0)):
+        for effect, empty_group_is_deny in (('ALLOW', True), ('DENY', False)):
             with self.subTest(effect=effect):
                 tree = parse_policy({'details': {'rules': [{
                     'effect': effect, 'principals': ['principal://goog/subject/alice@example.com'],
                     'operation': {'permissions': ['compute.googleapis.com/instances.delete']},
                 }]}})
-                self.assertEqual(tree['children'][empty_position]['children'], [])
+                allowed, excluded = tree['children']
+                empty = excluded['children'][0] if empty_group_is_deny else allowed
+                self.assertEqual(empty['children'], [])
 
     def test_policy_wrapper_and_provider_detail(self):
         source = {'policy': {'version': 1, 'bindings': [

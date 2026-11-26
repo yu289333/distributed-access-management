@@ -3,7 +3,6 @@
 Each node is a dictionary of policy-table columns plus a children list. Database
 IDs and parent IDs are assigned on insertion. OR with no children is empty/false;
 AND with no children is universal/true. NOT always has exactly one child.
-SUBTRACT has two operands, identified by child positions 0 and 1.
 
 Persistence lives in ``policyStore``, export in ``policyExport``, and the CLI in
 ``policyCli``; the wrappers below keep the historical imports working.
@@ -16,7 +15,7 @@ import json
 COLUMNS = ('name', 'display_name', 'comment', 'provider', 'provider_detail',
            'operator_onChildren', 'condition_raw', 'condition_cel', 'condition_json',
            'condition_raw_type', 'effect', 'child_position')
-OPERATORS = {'AND', 'OR', 'NOT', 'SUBTRACT'}
+OPERATORS = {'AND', 'OR', 'NOT'}
 
 
 def make_node(name, provider, provider_detail, operator_onChildren='AND', *, children=None,
@@ -47,7 +46,7 @@ def validate_tree(tree):
         if unknown:
             raise ValueError(f'Unknown policy fields: {sorted(unknown)}')
         if node.get('operator_onChildren') not in OPERATORS:
-            raise ValueError('Policy operator must be AND, OR, NOT, or SUBTRACT')
+            raise ValueError('Policy operator must be AND, OR, or NOT')
         position = node.get('child_position')
         if position is not None and (type(position) is not int or position < 0):
             raise ValueError('child_position must be a nonnegative integer or None')
@@ -72,9 +71,6 @@ def validate_tree(tree):
             normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_raw_type'))
         for child in children:
             visit(child)
-        if node['operator_onChildren'] == 'SUBTRACT' and (
-                len(children) != 2 or {child.get('child_position') for child in children} != {0, 1}):
-            raise ValueError('SUBTRACT requires two children with child_position 0 and 1')
 
     visit(tree)
 
@@ -100,66 +96,159 @@ def run_cli(*args, **kwargs):
 
 
 def _has_expression(node):
-    return node.get('condition_json') is not None or node.get('condition_cel') is not None
+    return (node.get('condition_json') is not None or node.get('condition_cel') is not None
+            or (node.get('condition_raw') is not None and not node.get('children')))
+
+
+def _marked(node):
+    return node.get('effect') is not None or node.get('child_position') is not None
 
 
 def _can_remove_group(node):
-    return (not _has_expression(node) and node.get('effect') is None
-            and node.get('child_position') is None)
+    return not _has_expression(node) and not _marked(node)
+
+
+def _constant(node):
+    if (_marked(node) or node.get('children') or node.get('condition_raw') is not None
+            or node.get('condition_json') is not None):
+        return None
+    cel = node.get('condition_cel')
+    if cel in ('true', 'false'):
+        return cel == 'true'
+    if cel is None and node['operator_onChildren'] in ('AND', 'OR'):
+        return node['operator_onChildren'] == 'AND'
+    return None
+
+
+def _set_constant(node, value):
+    node['operator_onChildren'] = 'AND' if value else 'OR'
+    node['children'] = []
+    return node
+
+
+def _predicate_key(node):
+    if _marked(node):
+        return None
+    children = tuple(_predicate_key(child) for child in node.get('children', []))
+    if None in children:
+        return None
+    expression = node.get('condition_json')
+    try:
+        condition = json.dumps(expression, sort_keys=True)
+    except TypeError:
+        # A Python dictionary can contain a mix of JSON-coercible key types.
+        condition = json.dumps(expression)
+    return (node.get('provider'), node.get('provider_detail'), node['operator_onChildren'],
+            node.get('condition_raw_type'), node.get('condition_raw'), condition,
+            node.get('condition_cel'), children)
+
+
+def _replace_group(node, replacement, *, is_root):
+    if not is_root:
+        return replacement
+    context_changes = any(node.get(key) is not None and node.get(key) != replacement.get(key)
+                          for key in ('provider', 'provider_detail'))
+    if (_marked(replacement) or context_changes
+            or (node.get('condition_raw') is not None and _has_expression(replacement))):
+        # The root source and the leaf predicate need separate condition_raw fields.
+        node['operator_onChildren'] = 'AND'
+        node['children'] = [replacement]
+        return node
+    for key in ('name', 'display_name', 'comment'):
+        if node.get(key) is not None:
+            replacement[key] = node[key]
+    if node.get('condition_raw') is not None:
+        replacement['condition_raw'] = node['condition_raw']
+        replacement['condition_raw_type'] = node.get('condition_raw_type')
+    return replacement
+
+
+def _reduce_group(node, operator):
+    neutral = operator == 'AND'
+    annihilator = not neutral
+    children = []
+    for child in node['children']:
+        if _constant(child) is neutral:
+            continue
+        if (_can_remove_group(child) and child['operator_onChildren'] == operator
+                and child.get('condition_raw') is None):
+            children.extend(child['children'])
+        else:
+            children.append(child)
+
+    unique = []
+    seen = set()
+    for child in children:
+        key = _predicate_key(child)
+        if key is not None:
+            if key in seen:
+                continue
+            seen.add(key)
+        unique.append((child, key))
+
+    opposite = 'OR' if neutral else 'AND'
+    kept = []
+    negations = []
+    can_discard = all(key is not None for _, key in unique)
+    for child, key in unique:
+        child_operator = child['operator_onChildren']
+        if can_discard and _constant(child) is annihilator:
+            return _set_constant(node, annihilator)
+        if key is not None and _can_remove_group(child):
+            if child_operator == 'NOT':
+                if can_discard and _predicate_key(child['children'][0]) in seen:
+                    return _set_constant(node, annihilator)
+                negations.append(child)
+            elif child_operator == opposite and any(
+                    _predicate_key(grandchild) in seen for grandchild in child['children']):
+                continue
+        kept.append(child)
+
+    if len(negations) >= 2:
+        negation_ids = {id(child) for child in negations}
+        group = make_node(None, node.get('provider'), node.get('provider_detail'), opposite,
+                          children=[child['children'][0] for child in negations])
+        combined = make_node(None, node.get('provider'), node.get('provider_detail'), 'NOT',
+                             children=[group])
+        kept = [combined if child is negations[0] else child
+                for child in kept if child is negations[0] or id(child) not in negation_ids]
+    node['children'] = kept
+    return node
 
 
 def canonicalize(tree):
-    """Return a meaning-preserving reduced copy of a validated policy tree.
-
-    Only structural nodes are rewritten: a grouping node carries no expression,
-    so replacing it with its children cannot change which leaf predicates are
-    evaluated. The rules are bottom-up and idempotent:
-
-    * a structural child with the same operator as its parent is spliced in,
-    * ``NOT(NOT x)`` becomes ``x``,
-    * an empty AND inside an AND is dropped (true is neutral),
-    * an empty OR inside an OR is dropped (false is neutral),
-    * a non-root structural node with exactly one child is replaced by it.
-
-    Leaf expressions are never modified, so the set of predicates is preserved.
-    Nodes carrying an explicit effect or operand position are kept.
-    Labels and per-node ``condition_raw`` text of eliminated nodes are dropped;
-    the root keeps its own ``condition_raw``. Use this for a canonical form to
-    compare or store, not as a substitute for the lossless tree.
-    """
+    """Return a reduced copy, using Boolean identities over opaque predicates."""
     validate_tree(tree)
-    return _canonical(deepcopy(tree), is_root=True)
+    reduced = deepcopy(tree)
+    while True:
+        size = _node_count(reduced)
+        reduced = _canonical(reduced, is_root=True)
+        if _node_count(reduced) == size:
+            return reduced
+
+
+def _node_count(node):
+    return 1 + sum(_node_count(child) for child in node.get('children', []))
 
 
 def _canonical(node, *, is_root):
     node['children'] = [_canonical(child, is_root=False)
                         for child in node.get('children', [])]
-    if _has_expression(node) or node['operator_onChildren'] == 'SUBTRACT':
+    if _has_expression(node):
         return node
-    kept = []
-    for child in node['children']:
-        if (_can_remove_group(child) and not child['children'] and
-                child['operator_onChildren'] == node['operator_onChildren'] and
-                node['operator_onChildren'] in ('AND', 'OR')):
-            continue
-        kept.append(child)
-    spliced = []
-    for child in kept:
-        # NOT is not associative: NOT(NOT x) is x, not NOT(x's children).
-        if (_can_remove_group(child) and child['operator_onChildren'] == node['operator_onChildren'] and
-                node['operator_onChildren'] != 'NOT' and child.get('condition_raw') is None):
-            spliced.extend(child['children'])
-        else:
-            spliced.append(child)
-    node['children'] = spliced
-    if (node['operator_onChildren'] == 'NOT' and len(node['children']) == 1
-            and _can_remove_group(node)):
+    operator = node['operator_onChildren']
+    if operator == 'NOT':
         child = node['children'][0]
-        if child['operator_onChildren'] == 'NOT' and _can_remove_group(child):
-            node = child['children'][0]
-    if (not is_root and _can_remove_group(node) and
-            node['operator_onChildren'] != 'NOT' and len(node['children']) == 1):
-        node = node['children'][0]
+        value = _constant(child)
+        if value is not None:
+            return _set_constant(node, not value)
+        if _can_remove_group(node) and child['operator_onChildren'] == 'NOT' and _can_remove_group(child):
+            return _replace_group(node, child['children'][0], is_root=is_root)
+        return node
+
+    node = _reduce_group(node, operator)
+    if _can_remove_group(node) and len(node['children']) == 1:
+        return _replace_group(node, node['children'][0], is_root=is_root)
     return node
 
 

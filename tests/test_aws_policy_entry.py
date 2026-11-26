@@ -36,10 +36,11 @@ class AwsParserTests(unittest.TestCase):
 
     def test_mixed_policy_groups_statements_by_declared_effect(self):
         tree = parse_policy((ROOT / 'examples/aws-mfa-mandated-policy.json').read_text())
-        self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
-        for position, effect in enumerate(('Allow', 'Deny')):
-            operand = tree['children'][position]
-            self.assertEqual(operand['child_position'], position)
+        self.assertEqual(tree['operator_onChildren'], 'AND')
+        allowed, excluded = tree['children']
+        self.assertEqual(excluded['operator_onChildren'], 'NOT')
+        denied, = excluded['children']
+        for operand, effect in ((allowed, 'Allow'), (denied, 'Deny')):
             self.assertEqual(operand['operator_onChildren'], 'OR')
             self.assertTrue(operand['children'])
             for group in operand['children']:
@@ -86,8 +87,10 @@ class AwsParserTests(unittest.TestCase):
                 tree = parse_policy(raw)
                 ordered = sorted(statements, key=lambda statement: statement['Effect'] == 'Deny')
                 if ordered[-1]['Effect'] == 'Deny':
-                    self.assertEqual(tree['operator_onChildren'], 'SUBTRACT')
-                    allowed, denied = tree['children']
+                    self.assertEqual(tree['operator_onChildren'], 'AND')
+                    allowed, excluded = tree['children']
+                    self.assertEqual(excluded['operator_onChildren'], 'NOT')
+                    denied, = excluded['children']
                     self.assertEqual(len(allowed['children']),
                                      sum(statement['Effect'] == 'Allow' for statement in statements))
                     groups = allowed['children'] + denied['children']

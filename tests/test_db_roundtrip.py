@@ -36,20 +36,19 @@ DELETE_SUBTREE = '''
 
 @unittest.skipUnless(DSN, 'DATABASE_URL required for the storage round trip')
 class DatabaseRoundTripTests(unittest.TestCase):
-    def test_aws_subtract_loads_operands_by_position(self):
+    def test_aws_loads_allow_and_negated_deny_groups(self):
         source = (ROOT / 'examples/aws-s3-deny-except-bucket.json').read_text()
         tree = parse_aws(source)
-        tree['children'].reverse()
         with closing(psycopg2.connect(DSN)) as connection:
             with connection, connection.cursor() as cursor:
                 cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
             root_id = write_policy_tree(connection, tree)
             loaded = load_policy_tree(connection, root_id)
-            self.assertEqual([child['child_position'] for child in loaded['children']], [0, 1])
+            self.assertEqual([child['operator_onChildren'] for child in loaded['children']], ['OR', 'NOT'])
             self.assertEqual(loaded, parse_aws(source))
             self.assertEqual(emit_policy(loaded), json.loads(source))
 
-    def test_gcp_unified_access_preserves_operands_and_rule_order(self):
+    def test_gcp_unified_access_preserves_rule_order(self):
         principal = 'principal://goog/subject/alice@example.com'
         source = {'details': {'rules': [
             {'effect': 'DENY', 'principals': [principal],
@@ -64,7 +63,7 @@ class DatabaseRoundTripTests(unittest.TestCase):
                 cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
             root_id = write_policy_tree(connection, tree)
             loaded = load_policy_tree(connection, root_id)
-            self.assertEqual(loaded, parse_gcp(source))
+            self.assertEqual(loaded, tree)
             self.assertEqual(emit_gcp(loaded), source)
 
     def test_exported_trees_survive_the_database(self):

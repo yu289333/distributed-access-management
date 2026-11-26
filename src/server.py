@@ -102,8 +102,7 @@ class PolicyHandler(BaseHTTPRequestHandler):
                 connection.close()
             tree = canonicalize(loaded) if _flag(params, 'canonical') else loaded
             payload = {'tree': tree}
-            # Emit from the lossless tree: canonicalization drops the grouping
-            # labels the Azure emitter uses.
+            # Emit from the lossless tree, which retains every source rule.
             if loaded.get('provider') == 'AWS':
                 payload['document'] = emit_policy(loaded)
             elif loaded.get('provider') == 'Azure':
@@ -133,8 +132,7 @@ class PolicyHandler(BaseHTTPRequestHandler):
             tree = parse_policy(source, name=name)
             if translate is not None and _flag(params, 'cel', default=True):
                 populate_condition_cel(tree, translate=translate)
-            if _flag(params, 'canonical'):
-                tree = canonicalize(tree)
+            counted_tree = canonicalize(tree) if _flag(params, 'canonical') else tree
             connection = connect()
             try:
                 # write_policy_tree owns the transaction (it re-enters the
@@ -143,7 +141,7 @@ class PolicyHandler(BaseHTTPRequestHandler):
             finally:
                 connection.close()
             self._send(201, {'id': root_id, 'provider': tree['provider'],
-                             'name': tree['name'], 'nodes': count_nodes(tree)})
+                             'name': tree['name'], 'nodes': count_nodes(counted_tree)})
         except json.JSONDecodeError as exc:
             self._fail(400, f'Invalid JSON: {exc.msg}')
         except ValueError as exc:

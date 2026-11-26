@@ -1,4 +1,4 @@
-CREATE TYPE setOperator AS ENUM ('OR', 'AND', 'NOT', 'SUBTRACT');
+CREATE TYPE setOperator AS ENUM ('OR', 'AND', 'NOT');
 
 create table policy (
     id  serial primary key,

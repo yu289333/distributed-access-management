@@ -67,15 +67,10 @@ class PolicyTreeTests(unittest.TestCase):
                                       table='x"; DROP TABLE policy; --')
         self.assertIn('"x""; DROP TABLE policy; --"', cursor.rows[0]['query'])
 
-    def test_subtract_requires_distinct_operand_positions(self):
-        for positions in ((0,), (0, 0), (0, 2), (0, None), (False, 1)):
-            with self.subTest(positions=positions):
-                operands = [policyTree.make_node('operand', 'AWS', 'arn:aws', 'OR',
-                                                 child_position=position)
-                            for position in positions]
-                root = policyTree.make_node('root', 'AWS', 'arn:aws', 'SUBTRACT', children=operands)
-                with self.assertRaisesRegex(ValueError, 'child_position'):
-                    policyTree.validate_tree(root)
+    def test_subtract_is_rejected(self):
+        tree = policyTree.make_node('root', 'AWS', 'arn:aws', 'SUBTRACT')
+        with self.assertRaisesRegex(ValueError, 'Policy operator'):
+            policyTree.validate_tree(tree)
 
     def test_transaction_success_failure_and_autocommit(self):
         connection = MagicMock()
