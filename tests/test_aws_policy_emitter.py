@@ -55,6 +55,14 @@ class AwsEmitterTests(unittest.TestCase):
                 expected = source['Document'] if 'Document' in source else source
                 self.assertEqual(emit_policy(parse_policy(source)), expected)
 
+    def test_edited_json_emits_without_syncing_raw(self):
+        tree = parse_policy((ROOT / 'examples/aws-ec2-readonly.json').read_text())
+        action = next(child for child in tree['children'][0]['children']
+                      if 'Action' in child['condition_json'])
+        action['condition_json']['Action'] = 's3:GetObject'
+        document = emit_policy(tree)
+        self.assertIn('s3:GetObject', [statement['Action'] for statement in document['Statement']])
+
     def test_reducing_a_deny_only_policy_preserves_its_source_tree_for_emission(self):
         source = (ROOT / 'examples/aws-deny-outside-regions.json').read_text()
         original = parse_policy(source)

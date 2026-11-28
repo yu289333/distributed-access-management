@@ -106,7 +106,7 @@ def _emit_access_policy(tree, document):
 
 def emit_policy(tree):
     """Return the GCP IAM policy reconstructed from a GCP policy tree."""
-    validate_tree(tree)
+    validate_tree(tree, check_source=False)
     check_provider(tree, 'GCP')
     document = read_raw(tree)
     if tree['operator_onChildren'] == 'AND':

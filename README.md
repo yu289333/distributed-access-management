@@ -44,13 +44,22 @@ note in `comment`. The root's `condition_raw`
 preserves the full input, including metadata, scopes, policy language version,
 parameters, and effects. Given a string, its original formatting is retained.
 
+CEL here compares stored source values, for example
+`Condition == {"Bool": {"aws:MultiFactorAuthPresent": "true"}}`. It is not a
+request-time predicate: the condition object is compared as a value, not
+evaluated against a request. The AWS and Azure entry points enrich CEL by
+default; GCP has no translator and leaves `condition_cel` NULL.
+
 `operator_onChildren` accepts `AND`, `OR`, and `NOT`. An empty OR represents
 the empty permission set (false); an empty AND represents the universal set
 (true). NOT has exactly one child. PostgreSQL preserves `child_position` for
 nodes with explicit ordering.
 Expressions and children cannot be mixed on
 the same node. Validation rejects cycles, shared children, unknown fields,
-duplicate JSON keys, and non-JSON values before writing any rows.
+duplicate JSON keys, and non-JSON values before writing any rows. Writes use the
+strict form; reads and emitters check structure only, so a tree whose
+`condition_json` was edited without its `condition_raw` can still be inspected or
+emitted. Storing such a tree requires the two to agree again.
 
 ### AWS parsing
 
@@ -107,6 +116,8 @@ the source. Explicit empty arrays remain leaves. Conditional permission
 blocks retain their native condition expression as an additional AND predicate.
 Assignable scopes describe where a role can be assigned; they are preserved in
 the original source, not treated as the scope of an actual role assignment.
+Permission fields this parser does not know are not represented as leaves; they
+remain in the root `condition_raw` and are restored by the emitter.
 
 An Azure Policy assignment with an explicit `scope` has an AND root with
 separate condition leaves for `scope` and `notScopes`. An Azure RBAC deny assignment

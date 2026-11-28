@@ -208,7 +208,7 @@ def _emit_deny_assignment(tree, document):
 
 def emit_policy(tree):
     """Return the Azure document reconstructed from an Azure policy tree."""
-    validate_tree(tree)
+    validate_tree(tree, check_source=False)
     check_provider(tree, 'Azure')
     document = read_raw(tree)
     detail = tree.get('provider_detail')

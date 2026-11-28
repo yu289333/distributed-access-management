@@ -1,5 +1,6 @@
 import json
 from itertools import product
+import random
 import unittest
 
 from src.awsPolicyEntry import parse_policy as parse_aws
@@ -41,6 +42,15 @@ def boolean_tree(expression):
                      children=[boolean_tree(child) for child in children])
 
 
+def random_expression(rng, depth):
+    if depth == 0 or rng.random() < 0.35:
+        return rng.choice(('A', 'B', 'C', 'D', True, False))
+    operator = rng.choice(('AND', 'OR', 'NOT'))
+    if operator == 'NOT':
+        return ('NOT', random_expression(rng, depth - 1))
+    return (operator, random_expression(rng, depth - 1), random_expression(rng, depth - 1))
+
+
 def boolean_shape(tree):
     if tree.get('condition_json') is not None:
         return tree['condition_json']['symbol']
@@ -76,6 +86,27 @@ class CanonicalizeTests(unittest.TestCase):
                     def predicate(leaf):
                         return assignment[leaf['symbol']]
                     self.assertEqual(evaluate(original, predicate), evaluate(reduced, predicate))
+
+    def test_generated_trees_keep_truth_values_and_shrink(self):
+        rng = random.Random(20261128)
+        for index in range(300):
+            expression = random_expression(rng, 3)
+            with self.subTest(index=index, expression=expression):
+                original = boolean_tree(expression)
+                before = json.dumps(original, sort_keys=True)
+                reduced = canonicalize(original)
+                self.assertEqual(json.dumps(original, sort_keys=True), before)
+                self.assertLessEqual(len(nodes(reduced)), len(nodes(original)))
+                self.assertEqual(reduced, canonicalize(reduced))
+                validate_tree(reduced)
+                for values in product((False, True), repeat=4):
+                    assignment = dict(zip('ABCD', values, strict=True))
+
+                    def predicate(leaf):
+                        return assignment[leaf['symbol']]
+
+                    self.assertEqual(evaluate(original, predicate),
+                                     evaluate(reduced, predicate))
 
     def test_group_with_explicit_effect_is_preserved(self):
         for effect in ('allow', 'deny'):

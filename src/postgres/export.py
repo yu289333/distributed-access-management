@@ -43,5 +43,5 @@ def strip_database_ids(tree):
 def load_policy_tree(connection, root_id):
     """Read one policy tree back as a validated tree without database ids."""
     tree = strip_database_ids(export_policy_tree(connection, root_id))
-    validate_tree(tree)
+    validate_tree(tree, check_source=False)
     return tree

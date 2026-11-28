@@ -32,45 +32,55 @@ def make_node(name, provider, provider_detail, operator_onChildren='AND', *, chi
                 children=list(children) if children is not None else [])
 
 
-def validate_tree(tree):
-    """Reject invalid or cyclic trees before any database writes occur."""
+def validate_tree(tree, *, check_source=True):
+    """Reject invalid or cyclic trees before any database writes occur.
+
+    ``check_source=False`` keeps the structural checks but skips the
+    condition_raw/condition_json agreement, so a tree edited in memory can still
+    be read or emitted. Writes keep the default (strict) behaviour.
+    """
     seen = set()
 
-    def visit(node):
+    def visit(node, path='root'):
+        def fail(message):
+            raise ValueError(f'{path}: {message}')
+
         if not isinstance(node, dict):
-            raise ValueError('Every policy node must be a dictionary')
+            fail('Every policy node must be a dictionary')
         if id(node) in seen:
-            raise ValueError('Policy nodes cannot be cyclic or shared between parents')
+            fail('Policy nodes cannot be cyclic or shared between parents')
         seen.add(id(node))
         unknown = set(node) - set(COLUMNS) - {'children'}
         if unknown:
-            raise ValueError(f'Unknown policy fields: {sorted(unknown)}')
+            fail(f'Unknown policy fields: {sorted(unknown)}')
         if node.get('operator_onChildren') not in OPERATORS:
-            raise ValueError('Policy operator must be AND, OR, or NOT')
+            fail('Policy operator must be AND, OR, or NOT')
         position = node.get('child_position')
         if position is not None and (type(position) is not int or position < 0):
-            raise ValueError('child_position must be a nonnegative integer or None')
+            fail('child_position must be a nonnegative integer or None')
         for key in COLUMNS:
             if key not in ('condition_json', 'child_position') and node.get(key) is not None:
                 if not isinstance(node[key], str):
-                    raise ValueError(f'{key} must be text or None')
+                    fail(f'{key} must be text or None')
         children = node.get('children', [])
         if not isinstance(children, list):
-            raise ValueError('children must be a list')
+            fail('children must be a list')
         if node['operator_onChildren'] == 'NOT' and len(children) != 1:
-            raise ValueError('NOT requires exactly one child')
+            fail('NOT requires exactly one child')
         if children and any(node.get(key) is not None for key in
                             ('condition_json', 'condition_cel')):
-            raise ValueError('Expression nodes must be leaves; use a parent to combine them')
+            fail('Expression nodes must be leaves; use a parent to combine them')
         try:
             json.dumps(node.get('condition_json'), allow_nan=False)
         except (TypeError, ValueError) as exc:
-            raise ValueError('condition_json must be JSON serializable') from exc
-        if node.get('condition_json') is not None and node.get('condition_raw') is not None:
+            raise ValueError(f'{path}: condition_json must be JSON serializable') from exc
+        if (check_source and node.get('condition_json') is not None
+                and node.get('condition_raw') is not None):
             from .conditions.source import normalize_condition
-            normalize_condition(node['condition_json'], node['condition_raw'], node.get('condition_raw_type'))
-        for child in children:
-            visit(child)
+            normalize_condition(node['condition_json'], node['condition_raw'],
+                                node.get('condition_raw_type'))
+        for index, child in enumerate(children):
+            visit(child, f'{path}/children[{index}]')
 
     visit(tree)
 

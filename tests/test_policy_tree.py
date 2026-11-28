@@ -67,6 +67,23 @@ class PolicyTreeTests(unittest.TestCase):
                                       table='x"; DROP TABLE policy; --')
         self.assertIn('"x""; DROP TABLE policy; --"', cursor.rows[0]['query'])
 
+    def test_source_agreement_is_checked_only_when_requested(self):
+        leaf = policyTree.make_node('leaf', 'AWS', 'arn:aws',
+                                    condition_json={'x': 1}, condition_raw='{"x": 1}')
+        tree = policyTree.make_node('root', 'AWS', 'arn:aws', 'OR', children=[leaf])
+        policyTree.validate_tree(tree)
+        leaf['condition_json'] = {'x': 2}
+        with self.assertRaisesRegex(ValueError, 'describe different conditions'):
+            policyTree.validate_tree(tree)
+        policyTree.validate_tree(tree, check_source=False)
+
+    def test_validation_errors_name_the_node_path(self):
+        leaf = policyTree.make_node('leaf', 'AWS', 'arn:aws')
+        leaf['unknown'] = 'x'
+        tree = policyTree.make_node('root', 'AWS', 'arn:aws', children=[leaf])
+        with self.assertRaisesRegex(ValueError, r'root/children\[0\].*Unknown policy fields'):
+            policyTree.validate_tree(tree)
+
     def test_subtract_is_rejected(self):
         tree = policyTree.make_node('root', 'AWS', 'arn:aws', 'SUBTRACT')
         with self.assertRaisesRegex(ValueError, 'Policy operator'):

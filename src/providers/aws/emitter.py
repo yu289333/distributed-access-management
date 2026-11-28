@@ -158,7 +158,7 @@ def _restore_order(original, statements):
 
 def emit_policy(tree):
     """Return an AWS policy document reconstructed from an AWS policy tree."""
-    validate_tree(tree)
+    validate_tree(tree, check_source=False)
     check_provider(tree, 'AWS')
     allowed, denied = _statement_groups(tree)
     nodes = list(allowed) + list(denied)
