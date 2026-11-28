@@ -13,6 +13,7 @@ The patent pending technology is to morph the access policies in AWS format to t
 - /src contains AWS, Azure, and GCP parsers and emitters, and the shared tree writer.
 - /examples contains standalone JSON policies for use with the parsers; /examples/sketches holds the non-JSON row diagrams.
 - /tests contains parser, tree-validation, and persistence regression tests.
+- /docs contains the architecture diagram (docs/architecture.svg).
 
 ## Policy entry modules
 
