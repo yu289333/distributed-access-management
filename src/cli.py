@@ -1,10 +1,12 @@
-"""Shared policy command-line runner."""
+"""Shared policy command-line runners and the backfill command."""
 import argparse
 import json
 import os
 from pathlib import Path
 from .conditions.cel import populate_condition_cel
-from .policyTree import validate_tree
+from .tree import validate_tree
+from .conditions.expression import populate_condition_cel as populate_by_provider
+from .postgres.backfill import convert_conditions as backfill
 from .postgres.store import write_policy_tree
 
 
@@ -51,3 +53,29 @@ def run_emit_cli(description, emit_policy, argv=None):
         parser.error(str(exc))
     print(json.dumps(document, indent=args.indent))
     return 0
+
+
+def convert_conditions(connection, apply=False, replace=False):
+    return backfill(connection, populate=populate_by_provider,
+                    apply=apply, replace=replace)
+
+
+def main():
+    """Preview or apply missing CEL expressions on stored leaf rows."""
+    import psycopg2
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--replace', action='store_true', help='Reconvert existing expressions too')
+    args = parser.parse_args()
+    connection = psycopg2.connect(os.environ.get('DATABASE_URL', ''))
+    try:
+        updates = convert_conditions(connection, apply=args.apply, replace=args.replace)
+    finally:
+        connection.close()
+    for expression, row_id in updates:
+        print(f'{row_id}: {expression}')
+    print(f'{"Updated" if args.apply else "Would update"} {len(updates)} leaf rows')
+
+
+if __name__ == '__main__':
+    main()

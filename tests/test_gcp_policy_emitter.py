@@ -5,10 +5,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from src.awsPolicyEntry import parse_policy as parse_aws
-from src.gcpPolicyEmitter import emit_gcp, emit_policy, main
-from src.gcpPolicyEntry import parse_policy
-from src.policyTree import canonicalize
+from src.providers.aws.entry import parse_policy as parse_aws
+from src.providers.gcp.emitter import emit_gcp, emit_policy, main
+from src.providers.gcp.entry import parse_policy
+from src.tree import canonicalize
 from policy_support import ROOT
 
 

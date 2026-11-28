@@ -4,8 +4,8 @@ Each node is a dictionary of policy-table columns plus a children list. Database
 IDs and parent IDs are assigned on insertion. OR with no children is empty/false;
 AND with no children is universal/true. NOT always has exactly one child.
 
-Persistence lives in ``postgres.store``, export in ``postgres.export``, and the
-CLI in ``policyCli``; the wrappers below keep the historical imports working.
+Persistence lives in ``postgres.store`` and ``postgres.export``; the CLI is in
+``cli``.
 """
 
 from copy import deepcopy
@@ -83,26 +83,6 @@ def validate_tree(tree, *, check_source=True):
             visit(child, f'{path}/children[{index}]')
 
     visit(tree)
-
-
-# Compatibility imports: retain existing public APIs while implementations live
-# in focused modules. Lazy wrappers avoid circular dependencies.
-from .policyDocument import load_document
-
-
-def insert_policy_tree(*args, **kwargs):
-    from .postgres.store import insert_policy_tree as implementation
-    return implementation(*args, **kwargs)
-
-
-def write_policy_tree(*args, **kwargs):
-    from .postgres.store import write_policy_tree as implementation
-    return implementation(*args, **kwargs)
-
-
-def run_cli(*args, **kwargs):
-    from .policyCli import run_cli as implementation
-    return implementation(*args, **kwargs)
 
 
 def _has_expression(node):
@@ -263,10 +243,15 @@ def _canonical(node, *, is_root):
 
 
 def strip_database_ids(tree):
-    from .postgres.export import strip_database_ids as implementation
-    return implementation(tree)
+    """Return a copy of a database export without ``id`` and ``parent_id``.
 
-
-def load_policy_tree(connection, root_id):
-    from .postgres.export import load_policy_tree as implementation
-    return implementation(connection, root_id)
+    ``examples/generated/*.json`` are exports of stored trees: every node also
+    carries the row's primary key and its parent's key. Those fields are not part
+    of the tree schema, so an export must be stripped before it can be
+    validated, compared with parser output, or re-imported.
+    """
+    node = {key: deepcopy(value) for key, value in tree.items()
+            if key not in ('id', 'parent_id')}
+    node['children'] = [strip_database_ids(child)
+                        for child in tree.get('children', [])]
+    return node

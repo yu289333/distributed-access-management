@@ -4,9 +4,9 @@ import io
 import json
 import unittest
 
-from src import gcpPolicyEntry
-from src.gcpPolicyEntry import parse_policy
-from src.policyTree import validate_tree
+from src.providers.gcp import entry as gcpPolicyEntry
+from src.providers.gcp.entry import parse_policy
+from src.tree import validate_tree
 from policy_support import ROOT, documents, evaluate, walk
 
 

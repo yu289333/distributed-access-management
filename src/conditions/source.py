@@ -4,7 +4,7 @@ Provider identifies policy language; condition_raw_type identifies serialization
 JSON raw text may be an object or an exact object-member fragment from the input.
 """
 import json
-from ..policyDocument import load_document
+from ..document import load_document
 
 
 def decode_json_condition(raw):

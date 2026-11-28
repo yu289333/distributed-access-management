@@ -1,7 +1,5 @@
 """Export stored policy rows as a tree, retaining database IDs."""
-from copy import deepcopy
-
-from ..policyTree import COLUMNS, validate_tree
+from ..tree import COLUMNS, strip_database_ids, validate_tree
 
 
 def export_policy_tree(connection, root_id):
@@ -23,21 +21,6 @@ def export_policy_tree(connection, root_id):
         if row[0] != root_id:
             nodes[row[1]]['children'].append(nodes[row[0]])
     return nodes[root_id]
-
-
-def strip_database_ids(tree):
-    """Return a copy of a database export without ``id`` and ``parent_id``.
-
-    ``examples/generated/*.json`` are exports of stored trees: every node also
-    carries the row's primary key and its parent's key. Those fields are not part
-    of the tree schema, so an export must be stripped before it can be
-    validated, compared with parser output, or re-imported.
-    """
-    node = {key: deepcopy(value) for key, value in tree.items()
-            if key not in ('id', 'parent_id')}
-    node['children'] = [strip_database_ids(child)
-                        for child in tree.get('children', [])]
-    return node
 
 
 def load_policy_tree(connection, root_id):

@@ -3,10 +3,10 @@ from itertools import product
 import random
 import unittest
 
-from src.awsPolicyEntry import parse_policy as parse_aws
-from src.azurePolicyEntry import parse_policy as parse_azure
-from src.gcpPolicyEntry import parse_policy as parse_gcp
-from src.policyTree import canonicalize, make_node, validate_tree
+from src.providers.aws.entry import parse_policy as parse_aws
+from src.providers.azure.entry import parse_policy as parse_azure
+from src.providers.gcp.entry import parse_policy as parse_gcp
+from src.tree import canonicalize, make_node, validate_tree
 from policy_support import ROOT, evaluate, walk
 
 

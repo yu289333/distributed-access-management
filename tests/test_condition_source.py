@@ -1,11 +1,11 @@
 import json
 import unittest
 
-from src.awsPolicyEntry import parse_policy
-from src.azurePolicyEntry import parse_policy as azure
-from src.conditionExpression import condition_to_cel
+from src.providers.aws.entry import parse_policy
+from src.providers.azure.entry import parse_policy as azure
+from src.conditions.expression import condition_to_cel
 from src.conditions.source import decode_json_condition, register_condition_format
-from src.policyTree import validate_tree
+from src.tree import validate_tree
 
 
 class ConditionSourceTests(unittest.TestCase):

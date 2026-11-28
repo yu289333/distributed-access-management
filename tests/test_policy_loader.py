@@ -1,9 +1,10 @@
 import json
 import unittest
 
-from src.awsPolicyEmitter import emit_policy
-from src.awsPolicyEntry import parse_policy
-from src.policyTree import COLUMNS, load_policy_tree
+from src.providers.aws.emitter import emit_policy
+from src.providers.aws.entry import parse_policy
+from src.postgres.export import load_policy_tree
+from src.tree import COLUMNS
 from policy_support import ROOT
 
 

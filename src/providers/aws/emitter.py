@@ -1,7 +1,7 @@
 """Reconstruct an AWS IAM policy document from a policy tree.
 
 This is the outbound half of the AWS morph: it accepts a tree produced by
-``awsPolicyEntry.parse_policy`` (or the same tree read back from the database)
+``providers.aws.entry.parse_policy`` (or the same tree read back from the database)
 and returns an AWS policy dictionary. It is deliberately narrow:
 
 * only AWS trees are accepted; an Azure or GCP tree is not a cross-cloud input,
@@ -19,8 +19,8 @@ import json
 
 from .parser import _check_statement
 from ..common import check_provider
-from ...policyCli import run_emit_cli
-from ...policyTree import validate_tree
+from ...cli import run_emit_cli
+from ...tree import validate_tree
 
 
 def _group(node, label):

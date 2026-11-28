@@ -1,5 +1,5 @@
 """Convert stored leaf conditions in one PostgreSQL transaction."""
-from ..policyTree import make_node
+from ..tree import make_node
 
 
 def convert_conditions(connection, *, populate, apply=False, replace=False):

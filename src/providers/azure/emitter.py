@@ -1,7 +1,7 @@
 """Reconstruct an Azure role, policy definition, or assignment from a policy tree.
 
 This is the outbound half of the Azure morph. It accepts a tree produced by
-``azurePolicyEntry.parse_policy`` (or the same tree read back from the database)
+``providers.azure.entry.parse_policy`` (or the same tree read back from the database)
 and returns the original Azure JSON document. It is deliberately narrow:
 
 * only Azure trees are accepted; an AWS or GCP tree is not a cross-cloud input,
@@ -14,8 +14,8 @@ and returns the original Azure JSON document. It is deliberately narrow:
 
 from copy import deepcopy
 
-from ...policyCli import run_emit_cli
-from ...policyTree import validate_tree
+from ...cli import run_emit_cli
+from ...tree import validate_tree
 from ..common import check_provider, read_raw
 from .parser import (
     DENY_ASSIGNMENT_DETAIL, PERMISSION_FIELDS, POLICY_ASSIGNMENT_DETAIL, POLICY_DETAIL, RBAC_DETAIL,

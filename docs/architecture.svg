@@ -30,9 +30,9 @@
   <!-- Row 1: interfaces -->
   <rect x="40" y="104" width="440" height="112" rx="12" class="interfaces"/>
   <text x="60" y="132" class="box-title">Interfaces</text>
-  <text x="60" y="156" class="mono">src/*PolicyEntry.py · src/*PolicyEmitter.py</text>
+  <text x="60" y="156" class="mono">src/providers/*/entry.py · src/providers/*/emitter.py</text>
   <text x="60" y="176" class="box-text">CLI: parse --dry-run / emit tree</text>
-  <text x="60" y="196" class="box-text">policyCli.run_cli · policyCli.run_emit_cli</text>
+  <text x="60" y="196" class="box-text">src/cli.py run_cli · run_emit_cli</text>
 
   <rect x="510" y="104" width="440" height="112" rx="12" class="interfaces"/>
   <text x="530" y="132" class="box-title">HTTP service</text>
@@ -74,15 +74,15 @@
   <!-- Row 3: tree core and conditions -->
   <rect x="40" y="444" width="850" height="132" rx="12" class="core"/>
   <text x="60" y="472" class="box-title">Tree core</text>
-  <text x="60" y="496" class="mono">src/policyTree.py</text>
+  <text x="60" y="496" class="mono">src/tree.py</text>
   <text x="60" y="518" class="box-text">COLUMNS · make_node · validate_tree(check_source) · strip_database_ids</text>
   <text x="60" y="538" class="box-text">canonicalize: Boolean rewrites, fixpoint, protects explicit child_position</text>
   <text x="60" y="558" class="box-text">AND / OR / NOT only · AWS deny = AND(OR(allows), NOT(OR(denies)))</text>
 
   <rect x="920" y="444" width="540" height="132" rx="12" class="conditions"/>
   <text x="940" y="472" class="box-title">Condition layer</text>
-  <text x="940" y="496" class="mono">conditions/source.py · conditions/format.py · conditions/cel.py</text>
-  <text x="940" y="516" class="mono">conditionExpression.py</text>
+  <text x="940" y="496" class="mono">conditions/source.py · format.py · cel.py</text>
+  <text x="940" y="516" class="mono">conditions/expression.py</text>
   <text x="940" y="538" class="box-text">normalize raw/JSON · literal formatting · CEL enrichment</text>
   <text x="940" y="558" class="box-text">CEL = source-value comparison, not request evaluation</text>
 
@@ -102,7 +102,7 @@
   <rect x="920" y="636" width="280" height="112" rx="12" class="persistence"/>
   <text x="940" y="664" class="box-title">Backfill</text>
   <text x="940" y="688" class="mono">postgres/backfill.py</text>
-  <text x="940" y="708" class="mono">convertConditions.py</text>
+  <text x="940" y="708" class="mono">src/cli.py</text>
   <text x="940" y="728" class="box-text">fill missing CEL</text>
 
   <rect x="1220" y="636" width="240" height="112" rx="12" class="persistence"/>

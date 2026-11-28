@@ -4,7 +4,7 @@ import unittest
 
 import psycopg2
 
-from src.convertConditions import convert_conditions as backfill
+from src.cli import convert_conditions as backfill
 
 
 @unittest.skipUnless(os.environ.get('DATABASE_URL'), 'DATABASE_URL required for PostgreSQL integration')
@@ -37,7 +37,7 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(cursor.fetchone(), ('json', {'Resource': '*'}))
 
     def test_replace_checks_raw_json_agreement(self):
-        from src.convertConditions import convert_conditions
+        from src.cli import convert_conditions
         backfill(self.connection, apply=True)
         with self.connection:
             with self.connection.cursor() as cursor:

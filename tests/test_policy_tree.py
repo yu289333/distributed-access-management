@@ -4,7 +4,11 @@ import json
 import unittest
 from unittest.mock import MagicMock
 
-from src import awsPolicyEntry, azurePolicyEntry, policyTree
+from src import tree as policyTree
+from src.document import load_document
+from src.postgres.store import insert_policy_tree, write_policy_tree
+from src.providers.aws import entry as awsPolicyEntry
+from src.providers.azure import entry as azurePolicyEntry
 from policy_support import ROOT, RecordingCursor
 
 
@@ -13,7 +17,7 @@ class PolicyTreeTests(unittest.TestCase):
         source = (ROOT / 'examples/aws-ec2-readonly.json').read_text()
         tree = awsPolicyEntry.parse_policy(source, name="O'Reilly")
         cursor = RecordingCursor()
-        root_id = policyTree.insert_policy_tree(cursor, tree, schema='auth')
+        root_id = insert_policy_tree(cursor, tree, schema='auth')
         self.assertEqual(root_id, 1)
         self.assertEqual(len(cursor.rows), 17)
         self.assertEqual(cursor.rows[0]['params'][1], "O'Reilly")
@@ -38,14 +42,14 @@ class PolicyTreeTests(unittest.TestCase):
     def test_azure_uses_the_same_writer(self):
         tree = azurePolicyEntry.parse_policy({'Actions': ['read'], 'Name': 'Reader'})
         cursor = RecordingCursor()
-        self.assertEqual(policyTree.insert_policy_tree(cursor, tree), 1)
+        self.assertEqual(insert_policy_tree(cursor, tree), 1)
         self.assertTrue(all(row['params'][4] == 'Azure' for row in cursor.rows))
 
     def test_validation_occurs_before_any_insert(self):
         node = policyTree.make_node('root', 'AWS', 'arn:aws', children=[{'operator_onChildren': 'INVALID'}])
         cursor = RecordingCursor()
         with self.assertRaises(ValueError):
-            policyTree.insert_policy_tree(cursor, node)
+            insert_policy_tree(cursor, node)
         self.assertFalse(cursor.rows)
 
     def test_cycles_shared_nodes_invalid_not_and_legacy_fields_are_rejected(self):
@@ -62,7 +66,7 @@ class PolicyTreeTests(unittest.TestCase):
 
     def test_sql_identifiers_are_quoted(self):
         cursor = RecordingCursor()
-        policyTree.insert_policy_tree(cursor, policyTree.make_node('x', 'AWS', 'arn:aws'),
+        insert_policy_tree(cursor, policyTree.make_node('x', 'AWS', 'arn:aws'),
                                       table='x"; DROP TABLE policy; --')
         self.assertIn('"x""; DROP TABLE policy; --"', cursor.rows[0]['query'])
 
@@ -95,21 +99,21 @@ class PolicyTreeTests(unittest.TestCase):
         cursor.fetchone.return_value = (42,)
         tree = policyTree.make_node('root', 'AWS', 'arn:aws', children=[
             policyTree.make_node('child', 'AWS', 'arn:aws')])
-        self.assertEqual(policyTree.write_policy_tree(connection, tree), 42)
+        self.assertEqual(write_policy_tree(connection, tree), 42)
         connection.__exit__.assert_called_once_with(None, None, None)
         connection.reset_mock()
         cursor.execute.side_effect = [None, RuntimeError('child failed')]
         with self.assertRaises(RuntimeError):
-            policyTree.write_policy_tree(connection, tree)
+            write_policy_tree(connection, tree)
         self.assertIs(connection.__exit__.call_args.args[0], RuntimeError)
         connection.autocommit = True
         with self.assertRaises(ValueError):
-            policyTree.write_policy_tree(connection, tree)
+            write_policy_tree(connection, tree)
 
     def test_strict_json_loading(self):
         for source in ['{"x": 1, "x": 2}', '{"x": NaN}', '[]', {'x': float('inf')}]:
             with self.assertRaises(ValueError):
-                policyTree.load_document(source)
+                load_document(source)
 
     def test_both_cli_dry_runs(self):
         for module, filename in [(awsPolicyEntry, 'aws-ec2-readonly.json'),

@@ -1,5 +1,5 @@
 """PostgreSQL policy tree persistence."""
-from ..policyTree import COLUMNS, validate_tree
+from ..tree import COLUMNS, validate_tree
 import json
 
 

@@ -5,13 +5,15 @@ import unittest
 
 import psycopg2
 
-from src.awsPolicyEmitter import emit_policy
-from src.azurePolicyEmitter import emit_policy as emit_azure
-from src.awsPolicyEntry import parse_policy as parse_aws
-from src.azurePolicyEntry import parse_policy as parse_azure
-from src.gcpPolicyEmitter import emit_policy as emit_gcp
-from src.gcpPolicyEntry import parse_policy as parse_gcp
-from src.policyTree import load_policy_tree, strip_database_ids, write_policy_tree
+from src.providers.aws.emitter import emit_policy
+from src.providers.azure.emitter import emit_policy as emit_azure
+from src.providers.aws.entry import parse_policy as parse_aws
+from src.providers.azure.entry import parse_policy as parse_azure
+from src.providers.gcp.emitter import emit_policy as emit_gcp
+from src.providers.gcp.entry import parse_policy as parse_gcp
+from src.postgres.export import load_policy_tree
+from src.postgres.store import write_policy_tree
+from src.tree import strip_database_ids
 from policy_support import ROOT
 
 DSN = os.environ.get('DATABASE_URL')

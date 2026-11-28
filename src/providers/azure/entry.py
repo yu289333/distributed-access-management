@@ -1,14 +1,9 @@
 """Public entry point for parsing Azure policies."""
 
-if not __package__:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from src.policyCli import run_cli
-from src.conditions.cel import populate_condition_cel
-from src.providers.azure.cel import azure
-from src.providers.azure.parser import parse_policy as parse_tree
+from ...cli import run_cli
+from ...conditions.cel import populate_condition_cel
+from .cel import azure
+from .parser import parse_policy as parse_tree
 
 
 def parse_policy(source, name=None, *, include_cel=True):

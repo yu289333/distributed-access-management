@@ -1,14 +1,9 @@
 """Public entry point for parsing AWS policies."""
 
-if not __package__:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from src.policyCli import run_cli
-from src.conditions.cel import populate_condition_cel
-from src.providers.aws.cel import aws
-from src.providers.aws.parser import parse_policy as parse_tree
+from ...cli import run_cli
+from ...conditions.cel import populate_condition_cel
+from .cel import aws
+from .parser import parse_policy as parse_tree
 
 
 def parse_policy(source, name=None, *, provider_detail='arn:aws', include_cel=True):

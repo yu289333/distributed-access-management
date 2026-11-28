@@ -1,7 +1,7 @@
-"""Compatibility API for selecting a provider CEL converter."""
-from .conditions import cel
-from .providers.aws.cel import aws
-from .providers.azure.cel import azure
+"""Select the provider CEL converter and expose the shared API."""
+from . import cel
+from ..providers.aws.cel import aws
+from ..providers.azure.cel import azure
 
 
 _TRANSLATORS = {'AWS': aws, 'Azure': azure}

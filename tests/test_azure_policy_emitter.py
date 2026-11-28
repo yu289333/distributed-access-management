@@ -5,10 +5,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from src.awsPolicyEntry import parse_policy as parse_aws
-from src.azurePolicyEntry import parse_policy
-from src.azurePolicyEmitter import emit_azure, emit_policy, main
-from src.policyTree import strip_database_ids
+from src.providers.aws.entry import parse_policy as parse_aws
+from src.providers.azure.entry import parse_policy
+from src.providers.azure.emitter import emit_azure, emit_policy, main
+from src.tree import strip_database_ids
 from policy_support import ROOT
 
 GENERATED = (

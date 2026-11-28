@@ -26,7 +26,7 @@ if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.conditions.cel import populate_condition_cel
-from src.policyTree import canonicalize
+from src.tree import canonicalize
 from src.postgres.export import load_policy_tree
 from src.postgres.store import write_policy_tree
 from src.providers.aws.cel import aws

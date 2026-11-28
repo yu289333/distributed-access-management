@@ -3,8 +3,8 @@
 from copy import deepcopy
 import json
 
-from ...policyDocument import load_document
-from ...policyTree import make_node, validate_tree
+from ...document import load_document
+from ...tree import make_node, validate_tree
 from ...conditions.source import attach_json_source
 
 

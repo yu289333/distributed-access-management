@@ -1,7 +1,7 @@
 """Reconstruct a GCP IAM policy from a policy tree.
 
 This is the outbound half of the GCP morph. It accepts a tree produced by
-``gcpPolicyEntry.parse_policy`` (or the same tree read back from the database)
+``providers.gcp.entry.parse_policy`` (or the same tree read back from the database)
 and returns the GCP IAM policy document. It is deliberately narrow:
 
 * only GCP trees are accepted; an AWS or Azure tree is not a cross-cloud input,
@@ -11,8 +11,8 @@ and returns the GCP IAM policy document. It is deliberately narrow:
 
 from copy import deepcopy
 
-from ...policyCli import run_emit_cli
-from ...policyTree import validate_tree
+from ...cli import run_emit_cli
+from ...tree import validate_tree
 from ..common import check_provider, read_raw
 from .parser import _check_access_rule, _has_access_rules
 

@@ -4,9 +4,9 @@ from pathlib import Path
 
 from celpy import Environment, json_to_cel
 from src.conditions.format import cel_activation
-from src.conditionExpression import condition_to_cel, populate_condition_cel
-from src.awsPolicyEntry import parse_policy
-from src.policyTree import make_node
+from src.conditions.expression import condition_to_cel, populate_condition_cel
+from src.providers.aws.entry import parse_policy
+from src.tree import make_node
 
 
 def run(expression, request=None, context=None, fields=None, resource=None):
@@ -85,7 +85,7 @@ class CelTests(unittest.TestCase):
             self.assertEqual(run(expression, resource=fields), expected)
 
     def test_azure_parser_populates_equals_and_preserves_not(self):
-        from src.azurePolicyEntry import parse_policy as azure
+        from src.providers.azure.entry import parse_policy as azure
         path = Path(__file__).resolve().parents[1] / 'examples/azure-audit-vm.json'
         tree = azure(path.read_text())
         applicability, outcome = tree['children']
@@ -132,7 +132,7 @@ class CelTests(unittest.TestCase):
             self.assertFalse(program.evaluate({'assignableScopes': json_to_cel(['/other'])}))
 
     def test_azure_permission_arrays_preserve_json_field_names(self):
-        from src.azurePolicyEntry import parse_policy as azure
+        from src.providers.azure.entry import parse_policy as azure
         path = Path(__file__).resolve().parents[1] / 'examples/azure-spring-role.json'
         tree = azure(path.read_text())
         def check(node):

@@ -6,9 +6,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from src.awsPolicyEmitter import emit_aws, emit_policy, main
-from src.awsPolicyEntry import parse_policy
-from src.policyTree import canonicalize, make_node, validate_tree
+from src.providers.aws.emitter import emit_aws, emit_policy, main
+from src.providers.aws.entry import parse_policy
+from src.tree import canonicalize, make_node, validate_tree
 from policy_support import ROOT, documents, walk
 
 

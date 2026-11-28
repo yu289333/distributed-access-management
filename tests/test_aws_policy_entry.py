@@ -2,8 +2,8 @@ from copy import deepcopy
 import json
 import unittest
 
-from src.awsPolicyEntry import parse_policy
-from src.policyTree import validate_tree
+from src.providers.aws.entry import parse_policy
+from src.tree import validate_tree
 from policy_support import ROOT, documents, evaluate, walk
 
 
