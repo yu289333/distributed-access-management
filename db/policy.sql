@@ -13,6 +13,5 @@ create table policy (
     condition_cel text,
     condition_json jsonb,
     condition_raw_type text,
-    effect text,
     child_position integer CHECK (child_position >= 0)
 );

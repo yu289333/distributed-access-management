@@ -13,8 +13,8 @@ def insert_policy_tree(cursor, tree, *, table='policy', schema=None, parent_id=N
     query = sql.SQL('''
         INSERT INTO {} (parent, name, display_name, comment, provider,
             provider_detail, "operator_onChildren", condition_raw, condition_cel,
-            condition_json, condition_raw_type, effect, child_position)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s) RETURNING id
+            condition_json, condition_raw_type, child_position)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s) RETURNING id
     ''').format(identifier)
 
     def insert(node, parent):

@@ -24,7 +24,7 @@ class PolicyTreeTests(unittest.TestCase):
             group_id = offset + 1
             self.assertEqual(group['params'][0], root_id)
             self.assertIsNone(group['params'][9])
-            self.assertEqual(group['params'][-2:], [None, None])
+            self.assertIsNone(group['params'][-1])
             for row in cursor.rows[offset + 1:offset + 4]:
                 self.assertEqual(row['params'][0], group_id)
                 self.assertEqual(row['params'][4:7], ['AWS', 'arn:aws', 'AND'])
@@ -55,8 +55,7 @@ class PolicyTreeTests(unittest.TestCase):
         shared = policyTree.make_node('root', 'AWS', 'arn:aws', children=[child, child])
         invalid_not = policyTree.make_node('not', 'AWS', 'arn:aws', 'NOT')
         invalid_json = policyTree.make_node('bad', 'AWS', 'arn:aws', condition_json={'x': float('nan')})
-        invalid_effect = policyTree.make_node('bad', 'AWS', 'arn:aws', effect=42)
-        for tree in [root, shared, invalid_not, invalid_json, invalid_effect,
+        for tree in [root, shared, invalid_not, invalid_json,
                      {'cloud': 'AWS', 'operator_onChildren': 'AND'}]:
             with self.assertRaises(ValueError):
                 policyTree.validate_tree(tree)

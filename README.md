@@ -31,9 +31,9 @@ The parsers and database writer are separate:
 The parsers accept a JSON string or Python dictionary and return an independent
 dictionary tree. Every node contains the columns `name`, `display_name`,
 `comment`, `provider`, `provider_detail`, `operator_onChildren`, `condition_raw`,
-`condition_cel`, `condition_json`, `condition_raw_type`, `effect`, and
+`condition_cel`, `condition_json`, `condition_raw_type`, and
 `child_position`, plus a
-`children` list. The effect is nullable. The writer generates
+`children` list. The writer generates
 the database `id` and `parent` values. Legacy `cloud`, `domain`, and `conditions`
 fields are not part of this format.
 
@@ -84,7 +84,7 @@ An allow-only policy has an OR root. When the policy contains a Deny statement,
 the root is an AND of the Allow OR group and a NOT over the Deny OR group.
 A deny-only policy has an empty Allow group.
 The parser groups statements by the declared `Effect` field and retains that
-field as a condition leaf. It leaves the node's `effect` column unset.
+field as a condition leaf.
 
 ### AWS emitting
 
@@ -325,8 +325,8 @@ partial tree. The caller owns the cursor and the transaction.
 operators, collapses singleton groups and double negations, folds Boolean
 constants, removes duplicate or absorbed predicates, and factors sibling
 negations. Rewrites operate on Boolean values over opaque predicates. The
-reduced form retains root source text and protects nodes with explicit effects
-or positions. Use the original tree for emission, since a Boolean reduction
+reduced form retains root source text and protects nodes with explicit
+positions. Use the original tree for emission, since a Boolean reduction
 can eliminate source rules and their metadata.
 
 The two hand-drawn row layouts under `examples/sketches/` are documentation, not
@@ -361,22 +361,11 @@ serialization of that object. Root raw text continues to retain the complete
 input policy; group source is context, not a separate leaf predicate.
 
 Azure array fields stay intact in one leaf so their raw fragments can come from
-the input. Older stored trees keep their IDs and structure; transformed leaves
-without an exact source fragment retain NULL raw rather than claiming generated
-text is original. Their JSON and expressions remain usable.
+the input.
 
-Fresh databases use `db/policy.sql`. For an existing database, run the migrations
-below. They preserve stored rows and IDs and are safe to repeat. If any policy row
-still uses `XOR`, the migration stops so those rules can be rewritten first.
-
-```sh
-psql -v ON_ERROR_STOP=1 -1 -f db/migrations/002_policy_fields.sql \
-  -f db/migrations/003_remove_xor.sql -f db/migrations/004_subtract_operands.sql \
-  -f db/migrations/005_replace_subtract.sql
-```
-
-Migration 005 converts stored SUBTRACT nodes to AND with a NOT wrapper around
-the former right operand. It then removes SUBTRACT from the enum.
+Fresh databases use `db/policy.sql`; it is the only supported schema.
+`db/scaffolding/` holds the one-off SQL that moved pre-v2 test data. It is not
+part of the runtime, is not run by CI, and can be deleted after the transfer.
 
 Shared modules are separated by responsibility:
 

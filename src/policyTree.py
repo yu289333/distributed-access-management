@@ -14,21 +14,21 @@ import json
 
 COLUMNS = ('name', 'display_name', 'comment', 'provider', 'provider_detail',
            'operator_onChildren', 'condition_raw', 'condition_cel', 'condition_json',
-           'condition_raw_type', 'effect', 'child_position')
+           'condition_raw_type', 'child_position')
 OPERATORS = {'AND', 'OR', 'NOT'}
 
 
 def make_node(name, provider, provider_detail, operator_onChildren='AND', *, children=None,
               condition_json=None, condition_raw=None, condition_cel=None,
               display_name=None, comment=None, condition_raw_type=None,
-              effect=None, child_position=None):
+              child_position=None):
     """Construct a node using only column names from db/policy.sql."""
     return dict(name=name, display_name=display_name, comment=comment,
                 provider=provider, provider_detail=provider_detail,
                 operator_onChildren=operator_onChildren, condition_raw=condition_raw,
                 condition_cel=condition_cel, condition_json=condition_json,
                 condition_raw_type=condition_raw_type or ('json' if condition_json is not None else None),
-                effect=effect, child_position=child_position,
+                child_position=child_position,
                 children=list(children) if children is not None else [])
 
 
@@ -111,7 +111,7 @@ def _has_expression(node):
 
 
 def _marked(node):
-    return node.get('effect') is not None or node.get('child_position') is not None
+    return node.get('child_position') is not None
 
 
 def _can_remove_group(node):

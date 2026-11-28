@@ -45,7 +45,7 @@ class AwsParserTests(unittest.TestCase):
             self.assertTrue(operand['children'])
             for group in operand['children']:
                 self.assertEqual(group['operator_onChildren'], 'AND')
-                self.assertIsNone(group['effect'])
+                self.assertNotIn('effect', group)
                 self.assertIn({'Effect': effect},
                               [leaf['condition_json'] for leaf in group['children']])
         statements = [node['condition_json'] for node in walk(tree)
@@ -100,7 +100,7 @@ class AwsParserTests(unittest.TestCase):
                 self.assertEqual(len(groups), statement_count)
                 for group, statement in zip(groups, ordered):
                     self.assertEqual(group['operator_onChildren'], 'AND')
-                    self.assertIsNone(group['effect'])
+                    self.assertNotIn('effect', group)
                     self.assertEqual([leaf['condition_json'] for leaf in group['children']],
                                      [{key: value} for key, value in statement.items() if key != 'Sid'])
                     self.assertTrue(all(not leaf['children'] for leaf in group['children']))

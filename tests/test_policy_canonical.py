@@ -108,13 +108,11 @@ class CanonicalizeTests(unittest.TestCase):
                     self.assertEqual(evaluate(original, predicate),
                                      evaluate(reduced, predicate))
 
-    def test_group_with_explicit_effect_is_preserved(self):
-        for effect in ('allow', 'deny'):
-            with self.subTest(effect=effect):
-                leaf = make_node('leaf', 'AWS', 'arn:aws', condition_json={'Action': 'read'})
-                group = make_node('rule', 'AWS', 'arn:aws', children=[leaf], effect=effect)
-                tree = make_node('root', 'AWS', 'arn:aws', children=[group])
-                self.assertEqual(canonicalize(tree), tree)
+    def test_group_with_explicit_position_is_preserved(self):
+        leaf = make_node('leaf', 'AWS', 'arn:aws', condition_json={'Action': 'read'})
+        group = make_node('rule', 'AWS', 'arn:aws', children=[leaf], child_position=0)
+        tree = make_node('root', 'AWS', 'arn:aws', children=[group])
+        self.assertEqual(canonicalize(tree), tree)
 
     def test_nested_groups_of_the_same_operator_are_spliced(self):
         leaf = lambda name: make_node(name, 'AWS', 'arn:aws',

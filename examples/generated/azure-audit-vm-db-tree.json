@@ -11,7 +11,6 @@
   "condition_cel": null,
   "condition_json": null,
   "condition_raw_type": "json",
-  "effect": null,
   "child_position": null,
   "children": [
     {
@@ -27,7 +26,6 @@
       "condition_cel": null,
       "condition_json": null,
       "condition_raw_type": null,
-      "effect": null,
       "child_position": null,
       "children": [
         {
@@ -46,7 +44,6 @@
             "equals": "Microsoft.Compute/virtualMachines"
           },
           "condition_raw_type": "json",
-          "effect": null,
           "child_position": null,
           "children": []
         },
@@ -63,7 +60,6 @@
           "condition_cel": null,
           "condition_json": null,
           "condition_raw_type": null,
-          "effect": null,
           "child_position": null,
           "children": [
             {
@@ -82,7 +78,6 @@
                 "equals": true
               },
               "condition_raw_type": "json",
-              "effect": null,
               "child_position": null,
               "children": []
             }
@@ -103,7 +98,6 @@
       "condition_cel": null,
       "condition_json": null,
       "condition_raw_type": null,
-      "effect": null,
       "child_position": null,
       "children": [
         {
@@ -121,7 +115,6 @@
             "effect": "audit"
           },
           "condition_raw_type": "json",
-          "effect": null,
           "child_position": null,
           "children": []
         },
@@ -138,7 +131,6 @@
           "condition_cel": null,
           "condition_json": null,
           "condition_raw_type": null,
-          "effect": null,
           "child_position": null,
           "children": [
             {
@@ -156,7 +148,6 @@
                 "type": "Microsoft.Compute/virtualMachines"
               },
               "condition_raw_type": "json",
-              "effect": null,
               "child_position": null,
               "children": []
             },
@@ -175,7 +166,6 @@
                 "name": "Virtual Machines without encryption enabled"
               },
               "condition_raw_type": "json",
-              "effect": null,
               "child_position": null,
               "children": []
             },
@@ -194,7 +184,6 @@
                 "message": "Encryption is not enabled for virtual machine {field('name')}."
               },
               "condition_raw_type": "json",
-              "effect": null,
               "child_position": null,
               "children": []
             },
@@ -213,7 +202,6 @@
                 "severity": "Critical"
               },
               "condition_raw_type": "json",
-              "effect": null,
               "child_position": null,
               "children": []
             }
