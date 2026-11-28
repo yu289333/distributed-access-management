@@ -4,7 +4,7 @@ import unittest
 
 import psycopg2
 
-from src.backfillCel import backfill
+from src.convertConditions import convert_conditions as backfill
 
 
 @unittest.skipUnless(os.environ.get('DATABASE_URL'), 'DATABASE_URL required for PostgreSQL integration')

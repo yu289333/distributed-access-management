@@ -10,7 +10,7 @@ The patent pending technology is to morph the access policies in AWS format to t
 ## Directory structure
 - /db directory contains sample policies from AWS, Azure and GCP as well as the Postgresql entity structure of storing policies
 - /lambda contains AWS Lambda code in an attempt to load policies into the Postgresql -- it's not working
-- /src contains AWS, Azure, and GCP parsers, the AWS emitter, and the shared tree writer.
+- /src contains AWS, Azure, and GCP parsers and emitters, and the shared tree writer.
 - /examples contains standalone JSON policies for use with the parsers; /examples/sketches holds the non-JSON row diagrams.
 - /tests contains parser, tree-validation, and persistence regression tests.
 
@@ -433,8 +433,8 @@ cd /workspace/distributed-access-management
 ```
 
 To fill missing expressions on existing leaf rows, use
-`python -m src.backfillCel` to preview and `python -m src.backfillCel --apply`
-to apply atomically. Existing non-NULL expressions are preserved, and unsupported
+`python -m src.convertConditions` to preview and
+`python -m src.convertConditions --apply` to apply atomically. Existing non-NULL expressions are preserved, and unsupported
 sources abort the transaction. The cloud workspace must be connected; the
 startup helper starts PostgreSQL, not an offline cloud machine.
 

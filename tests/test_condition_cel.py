@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 
 from celpy import Environment, json_to_cel
-from src.conditionCel import cel_activation, condition_to_cel, populate_condition_cel
+from src.conditions.format import cel_activation
+from src.conditionExpression import condition_to_cel, populate_condition_cel
 from src.awsPolicyEntry import parse_policy
 from src.policyTree import make_node
 

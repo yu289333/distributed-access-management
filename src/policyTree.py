@@ -4,8 +4,8 @@ Each node is a dictionary of policy-table columns plus a children list. Database
 IDs and parent IDs are assigned on insertion. OR with no children is empty/false;
 AND with no children is universal/true. NOT always has exactly one child.
 
-Persistence lives in ``policyStore``, export in ``policyExport``, and the CLI in
-``policyCli``; the wrappers below keep the historical imports working.
+Persistence lives in ``postgres.store``, export in ``postgres.export``, and the
+CLI in ``policyCli``; the wrappers below keep the historical imports working.
 """
 
 from copy import deepcopy

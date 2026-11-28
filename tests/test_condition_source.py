@@ -4,7 +4,7 @@ import unittest
 from src.awsPolicyEntry import parse_policy
 from src.azurePolicyEntry import parse_policy as azure
 from src.conditionExpression import condition_to_cel
-from src.conditionSource import decode_json_condition, register_condition_format
+from src.conditions.source import decode_json_condition, register_condition_format
 from src.policyTree import validate_tree
 
 
