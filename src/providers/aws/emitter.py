@@ -13,23 +13,14 @@ Because the parser keeps each statement verbatim in ``condition_json``, this
 round trip does not depend on a condition translation layer.
 """
 
-import argparse
 from collections import Counter
 from copy import deepcopy
 import json
-from pathlib import Path
 
 from .parser import _check_statement
+from ..common import check_provider
+from ...policyCli import run_emit_cli
 from ...policyTree import validate_tree
-
-
-def _check_provider(tree):
-    pending = [tree]
-    while pending:
-        node = pending.pop()
-        if node.get('provider') != 'AWS':
-            raise ValueError('emit_policy requires a tree whose nodes all have provider AWS')
-        pending.extend(node.get('children', []))
 
 
 def _group(node, label):
@@ -168,7 +159,7 @@ def _restore_order(original, statements):
 def emit_policy(tree):
     """Return an AWS policy document reconstructed from an AWS policy tree."""
     validate_tree(tree)
-    _check_provider(tree)
+    check_provider(tree, 'AWS')
     allowed, denied = _statement_groups(tree)
     nodes = list(allowed) + list(denied)
     statements = [_statement(node, index)
@@ -184,17 +175,8 @@ emit_aws = emit_policy
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description='Rebuild an AWS policy JSON document from a policy tree')
-    parser.add_argument('file', type=Path,
-                        help='A policy tree JSON file, e.g. --dry-run output')
-    parser.add_argument('--indent', type=int, default=2,
-                        help='Indentation of the printed JSON (default: 2)')
-    args = parser.parse_args(argv)
-    try:
-        tree = json.loads(args.file.read_text(encoding='utf-8-sig'))
-        document = emit_policy(tree)
-    except (OSError, TypeError, ValueError) as exc:
-        parser.error(str(exc))
-    print(json.dumps(document, indent=args.indent))
-    return 0
+    return run_emit_cli('Rebuild an AWS policy JSON document from a policy tree', emit_policy, argv)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

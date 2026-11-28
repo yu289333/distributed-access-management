@@ -12,35 +12,14 @@ and returns the original Azure JSON document. It is deliberately narrow:
   assignments with an explicit scope, and RBAC deny assignments.
 """
 
-import argparse
-import json
 from copy import deepcopy
-from pathlib import Path
 
+from ...policyCli import run_emit_cli
 from ...policyTree import validate_tree
+from ..common import check_provider, read_raw
 from .parser import (
     DENY_ASSIGNMENT_DETAIL, PERMISSION_FIELDS, POLICY_ASSIGNMENT_DETAIL, POLICY_DETAIL, RBAC_DETAIL,
 )
-
-
-def _check_provider(tree):
-    pending = [tree]
-    while pending:
-        node = pending.pop()
-        if node.get('provider') != 'Azure':
-            raise ValueError('emit_policy requires a tree whose nodes all have provider Azure')
-        pending.extend(node.get('children', []))
-
-
-def _raw(tree):
-    raw = tree.get('condition_raw')
-    if not raw:
-        return {}
-    try:
-        document = json.loads(raw)
-    except ValueError:
-        return {}
-    return document if isinstance(document, dict) else {}
 
 
 def _container(document):
@@ -230,8 +209,8 @@ def _emit_deny_assignment(tree, document):
 def emit_policy(tree):
     """Return the Azure document reconstructed from an Azure policy tree."""
     validate_tree(tree)
-    _check_provider(tree)
-    document = _raw(tree)
+    check_provider(tree, 'Azure')
+    document = read_raw(tree)
     detail = tree.get('provider_detail')
     if detail == POLICY_DETAIL:
         return _emit_policy_definition(tree, document)
@@ -248,17 +227,8 @@ emit_azure = emit_policy
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description='Rebuild an Azure role, policy definition, or assignment from a policy tree')
-    parser.add_argument('file', type=Path,
-                        help='A policy tree JSON file, e.g. --dry-run output')
-    parser.add_argument('--indent', type=int, default=2,
-                        help='Indentation of the printed JSON (default: 2)')
-    args = parser.parse_args(argv)
-    try:
-        tree = json.loads(args.file.read_text(encoding='utf-8-sig'))
-        document = emit_policy(tree)
-    except (OSError, TypeError, ValueError) as exc:
-        parser.error(str(exc))
-    print(json.dumps(document, indent=args.indent))
-    return 0
+    return run_emit_cli('Rebuild an Azure role, policy definition, or assignment from a policy tree', emit_policy, argv)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

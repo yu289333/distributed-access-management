@@ -9,22 +9,12 @@ and returns the GCP IAM policy document. It is deliberately narrow:
 * outer metadata (version, etag) is recovered from the root's ``condition_raw``.
 """
 
-import argparse
-import json
 from copy import deepcopy
-from pathlib import Path
 
+from ...policyCli import run_emit_cli
 from ...policyTree import validate_tree
+from ..common import check_provider, read_raw
 from .parser import _check_access_rule, _has_access_rules
-
-
-def _check_provider(tree):
-    pending = [tree]
-    while pending:
-        node = pending.pop()
-        if node.get('provider') != 'GCP':
-            raise ValueError('emit_policy requires a tree whose nodes all have provider GCP')
-        pending.extend(node.get('children', []))
 
 
 def _binding_target(document):
@@ -36,17 +26,6 @@ def _binding_target(document):
         if isinstance(candidate, dict) and 'bindings' in candidate:
             return candidate
     return document
-
-
-def _raw(tree):
-    raw = tree.get('condition_raw')
-    if not raw:
-        return {}
-    try:
-        document = json.loads(raw)
-    except ValueError:
-        return {}
-    return document if isinstance(document, dict) else {}
 
 
 def _binding(node):
@@ -128,8 +107,8 @@ def _emit_access_policy(tree, document):
 def emit_policy(tree):
     """Return the GCP IAM policy reconstructed from a GCP policy tree."""
     validate_tree(tree)
-    _check_provider(tree)
-    document = _raw(tree)
+    check_provider(tree, 'GCP')
+    document = read_raw(tree)
     if tree['operator_onChildren'] == 'AND':
         return _emit_access_policy(tree, document)
     _binding_target(document)['bindings'] = [
@@ -141,17 +120,8 @@ emit_gcp = emit_policy
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description='Rebuild a GCP IAM policy from a policy tree')
-    parser.add_argument('file', type=Path,
-                        help='A policy tree JSON file, e.g. --dry-run output')
-    parser.add_argument('--indent', type=int, default=2,
-                        help='Indentation of the printed JSON (default: 2)')
-    args = parser.parse_args(argv)
-    try:
-        tree = json.loads(args.file.read_text(encoding='utf-8-sig'))
-        document = emit_policy(tree)
-    except (OSError, TypeError, ValueError) as exc:
-        parser.error(str(exc))
-    print(json.dumps(document, indent=args.indent))
-    return 0
+    return run_emit_cli('Rebuild a GCP IAM policy from a policy tree', emit_policy, argv)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

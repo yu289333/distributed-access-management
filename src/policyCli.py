@@ -34,3 +34,20 @@ def run_cli(parse_policy, argv=None, *, translate=None):
         connection.close()
     print(f'Stored {tree["name"]!r} with root ID {root_id}')
     return 0
+
+
+def run_emit_cli(description, emit_policy, argv=None):
+    """Read a tree JSON file, emit a document, and print it."""
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('file', type=Path,
+                        help='A policy tree JSON file, e.g. --dry-run output')
+    parser.add_argument('--indent', type=int, default=2,
+                        help='Indentation of the printed JSON (default: 2)')
+    args = parser.parse_args(argv)
+    try:
+        tree = json.loads(args.file.read_text(encoding='utf-8-sig'))
+        document = emit_policy(tree)
+    except (OSError, TypeError, ValueError) as exc:
+        parser.error(str(exc))
+    print(json.dumps(document, indent=args.indent))
+    return 0
