@@ -89,6 +89,16 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload['document'], source)
 
+    def test_gcp_tree_has_its_document(self):
+        source = json.loads((ROOT / 'examples/gcp-iam-bindings.json').read_text())
+        status, created = call(self.base + '/policies?provider=gcp',
+                               method='POST', body=source)
+        self.assertEqual(status, 201)
+        self.created = [created['id']]
+        status, payload = call(self.base + '/policies/%d' % created['id'])
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['document'], source)
+
     def test_canonical_trees_are_smaller_or_equal(self):
         source = json.loads((ROOT / 'examples/azure-audit-vm.json').read_text())
         status, created = call(self.base + '/policies?provider=azure', method='POST', body=source)

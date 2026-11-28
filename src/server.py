@@ -35,6 +35,7 @@ from src.providers.aws.parser import parse_policy as parse_aws
 from src.providers.azure.cel import azure
 from src.providers.azure.emitter import emit_policy as emit_azure
 from src.providers.azure.parser import parse_policy as parse_azure
+from src.providers.gcp.emitter import emit_policy as emit_gcp
 from src.providers.gcp.parser import parse_policy as parse_gcp
 
 PARSERS = {'aws': (parse_aws, aws), 'azure': (parse_azure, azure), 'gcp': (parse_gcp, None)}
@@ -107,6 +108,8 @@ class PolicyHandler(BaseHTTPRequestHandler):
                 payload['document'] = emit_policy(loaded)
             elif loaded.get('provider') == 'Azure':
                 payload['document'] = emit_azure(loaded)
+            elif loaded.get('provider') == 'GCP':
+                payload['document'] = emit_gcp(loaded)
             self._send(200, payload)
         except ValueError as exc:
             if 'not found' in str(exc):

@@ -27,6 +27,17 @@ def _check_provider(tree):
         pending.extend(node.get('children', []))
 
 
+def _binding_target(document):
+    """Find the object that owns ``bindings`` (top level or a policy wrapper)."""
+    if 'bindings' in document:
+        return document
+    for wrapper in ('policy', 'Policy'):
+        candidate = document.get(wrapper)
+        if isinstance(candidate, dict) and 'bindings' in candidate:
+            return candidate
+    return document
+
+
 def _raw(tree):
     raw = tree.get('condition_raw')
     if not raw:
@@ -121,7 +132,8 @@ def emit_policy(tree):
     document = _raw(tree)
     if tree['operator_onChildren'] == 'AND':
         return _emit_access_policy(tree, document)
-    document['bindings'] = [_binding(node) for node in tree.get('children', [])]
+    _binding_target(document)['bindings'] = [
+        _binding(node) for node in tree.get('children', [])]
     return document
 
 

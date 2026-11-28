@@ -476,7 +476,7 @@ curl -s 'localhost:8080/policies/1?canonical=1'    # reduced tree
 
 `POST /policies?provider=aws|azure|gcp[&name=...][&canonical=1]` parses and
 stores the original tree. With `canonical=1`, the response reports the reduced
-node count. `GET /policies/<id>` loads it back and, for AWS and Azure trees,
+node count. `GET /policies/<id>` loads it back and, for AWS, Azure, and GCP trees,
 includes the rebuilt policy document. With `canonical=1`, GET returns the
 reduced tree alongside the document rebuilt from the original. `GET /healthz`
 checks the database.

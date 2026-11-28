@@ -17,6 +17,13 @@ class GcpEmitterTests(unittest.TestCase):
         source = (ROOT / 'examples/gcp-iam-bindings.json').read_text()
         self.assertEqual(emit_policy(parse_policy(source)), json.loads(source))
 
+    def test_bindings_inside_a_policy_wrapper_are_updated_in_place(self):
+        source = {'policy': {'version': 3, 'etag': 'x', 'bindings': [
+            {'role': 'roles/storage.admin', 'members': ['user:a@example.com']}]}}
+        tree = parse_policy(json.dumps(source))
+        self.assertEqual(emit_policy(tree), source)
+        self.assertEqual(list(emit_policy(tree)), ['policy'])
+
     def test_edits_are_reflected(self):
         tree = parse_policy((ROOT / 'examples/gcp-iam-bindings.json').read_text())
         role = tree['children'][0]['children'][0]
