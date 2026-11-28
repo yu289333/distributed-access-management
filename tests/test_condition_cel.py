@@ -3,9 +3,10 @@ import unittest
 from pathlib import Path
 
 from celpy import Environment, json_to_cel
-from src.conditionCel import cel_activation, condition_to_cel, populate_condition_cel
-from src.awsPolicyEntry import parse_policy
-from src.policyTree import make_node
+from src.conditions.format import cel_activation
+from src.conditions.expression import condition_to_cel, populate_condition_cel
+from src.providers.aws.entry import parse_policy
+from src.tree import make_node
 
 
 def run(expression, request=None, context=None, fields=None, resource=None):
@@ -55,6 +56,19 @@ class CelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             condition_to_cel({'Effect': 'Allow'}, 'invalid raw', provider='AWS')
 
+    def test_aws_scalar_action_globs_match_entire_strings(self):
+        expression = self.aws({'Action': 's3:*'})
+        self.assertEqual(expression, 'Action.matches("^s3:.*$")')
+        env = Environment()
+        program = env.program(env.compile(expression))
+        self.assertTrue(program.evaluate({'Action': json_to_cel('s3:GetObject')}))
+        self.assertFalse(program.evaluate({'Action': json_to_cel('ec2:DescribeInstances')}))
+        self.assertFalse(program.evaluate({'Action': json_to_cel('other:s3:GetObject')}))
+
+        program = env.program(env.compile(self.aws({'Action': 's3:Get.*Object'})))
+        self.assertTrue(program.evaluate({'Action': json_to_cel('s3:Get.myObject')}))
+        self.assertFalse(program.evaluate({'Action': json_to_cel('s3:GetXmyObject')}))
+
     def test_azure_planes_and_fields(self):
         expression = condition_to_cel({'notActions': ['*/write']}, provider='Azure',
                                      provider_detail='Microsoft.Authorization/roleDefinitions')
@@ -71,12 +85,12 @@ class CelTests(unittest.TestCase):
             self.assertEqual(run(expression, resource=fields), expected)
 
     def test_azure_parser_populates_equals_and_preserves_not(self):
-        from src.azurePolicyEntry import parse_policy as azure
+        from src.providers.azure.entry import parse_policy as azure
         path = Path(__file__).resolve().parents[1] / 'examples/azure-audit-vm.json'
         tree = azure(path.read_text())
         applicability, outcome = tree['children']
         type_leaf, negation = applicability['children']
-        self.assertEqual(negation['operator'], 'NOT')
+        self.assertEqual(negation['operator_onChildren'], 'NOT')
         encryption_leaf = negation['children'][0]
         expression = encryption_leaf['condition_cel']
         self.assertEqual(expression, 'Microsoft.Compute/virtualMachines/storageProfile.osDisk.encryptionSettings.enabled == true')
@@ -118,7 +132,7 @@ class CelTests(unittest.TestCase):
             self.assertFalse(program.evaluate({'assignableScopes': json_to_cel(['/other'])}))
 
     def test_azure_permission_arrays_preserve_json_field_names(self):
-        from src.azurePolicyEntry import parse_policy as azure
+        from src.providers.azure.entry import parse_policy as azure
         path = Path(__file__).resolve().parents[1] / 'examples/azure-spring-role.json'
         tree = azure(path.read_text())
         def check(node):

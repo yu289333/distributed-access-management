@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1020" viewBox="0 0 1500 1020" role="img" aria-labelledby="title">
+  <title id="title">Policy normalization architecture</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .title { font: 700 30px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 16px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #475569; }
+      .box-title { font: 700 17px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #0f172a; }
+      .box-text { font: 400 13px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #334155; }
+      .mono { font: 500 12.5px "SFMono-Regular", Menlo, Consolas, monospace; fill: #1e293b; }
+      .label { font: 500 13px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #475569; }
+      .note { font: 400 12.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #64748b; }
+      .arrow { stroke: #475569; stroke-width: 1.8; fill: none; }
+      .dashed { stroke: #64748b; stroke-width: 1.6; stroke-dasharray: 6 5; fill: none; }
+      .interfaces { fill: #eff6ff; stroke: #93c5fd; }
+      .providers { fill: #f0fdf4; stroke: #86efac; }
+      .core { fill: #faf5ff; stroke: #c4b5fd; }
+      .conditions { fill: #fdf4ff; stroke: #e9a8f5; }
+      .persistence { fill: #fff7ed; stroke: #fdba74; }
+      .database { fill: #f1f5f9; stroke: #94a3b8; }
+      .draft { fill: #f8fafc; stroke: #94a3b8; }
+    </style>
+  </defs>
+
+  <text x="40" y="46" class="title">Policy normalization architecture</text>
+  <text x="40" y="74" class="subtitle">Provider policy → neutral tree → PostgreSQL → Boolean reduction → provider document · PR #8</text>
+
+  <!-- Row 1: interfaces -->
+  <rect x="40" y="104" width="440" height="112" rx="12" class="interfaces"/>
+  <text x="60" y="132" class="box-title">Interfaces</text>
+  <text x="60" y="156" class="mono">src/providers/*/entry.py · src/providers/*/emitter.py</text>
+  <text x="60" y="176" class="box-text">CLI: parse --dry-run / emit tree</text>
+  <text x="60" y="196" class="box-text">src/cli.py run_cli · run_emit_cli</text>
+
+  <rect x="510" y="104" width="440" height="112" rx="12" class="interfaces"/>
+  <text x="530" y="132" class="box-title">HTTP service</text>
+  <text x="530" y="156" class="mono">src/server.py</text>
+  <text x="530" y="176" class="box-text">POST /policies?provider=…&amp;canonical=1</text>
+  <text x="530" y="196" class="box-text">GET /policies/&lt;id&gt; · GET /healthz</text>
+
+  <rect x="980" y="104" width="480" height="112" rx="12" class="interfaces"/>
+  <text x="1000" y="132" class="box-title">Deployment &amp; CI</text>
+  <text x="1000" y="156" class="mono">Dockerfile · docker-compose.yml</text>
+  <text x="1000" y="176" class="box-text">PostgreSQL 16 service in GitHub Actions</text>
+  <text x="1000" y="196" class="box-text">python -m unittest discover -s tests</text>
+
+  <!-- Row 2: provider adapters -->
+  <rect x="40" y="274" width="340" height="112" rx="12" class="providers"/>
+  <text x="60" y="302" class="box-title">AWS adapter</text>
+  <text x="60" y="326" class="mono">providers/aws/parser.py</text>
+  <text x="60" y="346" class="mono">providers/aws/emitter.py</text>
+  <text x="60" y="366" class="mono">providers/aws/cel.py</text>
+
+  <rect x="400" y="274" width="340" height="112" rx="12" class="providers"/>
+  <text x="420" y="302" class="box-title">Azure adapter</text>
+  <text x="420" y="326" class="mono">providers/azure/parser.py</text>
+  <text x="420" y="346" class="mono">providers/azure/emitter.py</text>
+  <text x="420" y="366" class="mono">providers/azure/cel.py</text>
+
+  <rect x="760" y="274" width="340" height="112" rx="12" class="providers"/>
+  <text x="780" y="302" class="box-title">GCP adapter</text>
+  <text x="780" y="326" class="mono">providers/gcp/parser.py</text>
+  <text x="780" y="346" class="mono">providers/gcp/emitter.py</text>
+  <text x="780" y="366" class="box-text">no CEL translator</text>
+
+  <rect x="1120" y="274" width="340" height="112" rx="12" class="providers"/>
+  <text x="1140" y="302" class="box-title">Shared adapter helpers</text>
+  <text x="1140" y="326" class="mono">providers/common.py</text>
+  <text x="1140" y="346" class="box-text">check_provider() · read_raw()</text>
+  <text x="1140" y="366" class="box-text">CLI runner reused by all emitters</text>
+
+  <!-- Row 3: tree core and conditions -->
+  <rect x="40" y="444" width="850" height="132" rx="12" class="core"/>
+  <text x="60" y="472" class="box-title">Tree core</text>
+  <text x="60" y="496" class="mono">src/tree.py</text>
+  <text x="60" y="518" class="box-text">COLUMNS · make_node · validate_tree(check_source) · strip_database_ids</text>
+  <text x="60" y="538" class="box-text">canonicalize: Boolean rewrites, fixpoint, protects explicit child_position</text>
+  <text x="60" y="558" class="box-text">AND / OR / NOT only · AWS deny = AND(OR(allows), NOT(OR(denies)))</text>
+
+  <rect x="920" y="444" width="540" height="132" rx="12" class="conditions"/>
+  <text x="940" y="472" class="box-title">Condition layer</text>
+  <text x="940" y="496" class="mono">conditions/source.py · format.py · cel.py</text>
+  <text x="940" y="516" class="mono">conditions/expression.py</text>
+  <text x="940" y="538" class="box-text">normalize raw/JSON · literal formatting · CEL enrichment</text>
+  <text x="940" y="558" class="box-text">CEL = source-value comparison, not request evaluation</text>
+
+  <!-- Row 4: persistence -->
+  <rect x="40" y="636" width="420" height="112" rx="12" class="persistence"/>
+  <text x="60" y="664" class="box-title">Write path</text>
+  <text x="60" y="688" class="mono">postgres/store.py</text>
+  <text x="60" y="708" class="box-text">insert_policy_tree / write_policy_tree</text>
+  <text x="60" y="728" class="box-text">strict validate_tree before any row</text>
+
+  <rect x="480" y="636" width="420" height="112" rx="12" class="persistence"/>
+  <text x="500" y="664" class="box-title">Read path</text>
+  <text x="500" y="688" class="mono">postgres/export.py</text>
+  <text x="500" y="708" class="box-text">WITH RECURSIVE, explicit COLUMNS</text>
+  <text x="500" y="728" class="box-text">structure-only validation, no DB ids</text>
+
+  <rect x="920" y="636" width="280" height="112" rx="12" class="persistence"/>
+  <text x="940" y="664" class="box-title">Backfill</text>
+  <text x="940" y="688" class="mono">postgres/backfill.py</text>
+  <text x="940" y="708" class="mono">src/cli.py</text>
+  <text x="940" y="728" class="box-text">fill missing CEL</text>
+
+  <rect x="1220" y="636" width="240" height="112" rx="12" class="persistence"/>
+  <text x="1240" y="664" class="box-title">Schema</text>
+  <text x="1240" y="688" class="mono">db/policy.sql</text>
+  <text x="1240" y="708" class="box-text">adjacency list</text>
+  <text x="1240" y="728" class="box-text">no migrations</text>
+
+  <!-- Row 5: database -->
+  <rect x="40" y="800" width="1420" height="88" rx="12" class="database"/>
+  <text x="60" y="828" class="box-title">PostgreSQL: policy(id, parent, …)</text>
+  <text x="60" y="852" class="mono">name · display_name · comment · provider · provider_detail · "operator_onChildren"</text>
+  <text x="60" y="872" class="mono">condition_raw · condition_cel · condition_json · condition_raw_type · child_position</text>
+
+  <!-- Arrows -->
+  <line x1="750" y1="216" x2="750" y2="268" class="arrow" marker-end="url(#arrow)"/>
+  <text x="766" y="248" class="label">source JSON / tree JSON</text>
+
+  <line x1="750" y1="386" x2="750" y2="438" class="arrow" marker-end="url(#arrow)"/>
+  <text x="766" y="418" class="label">node dictionaries</text>
+
+  <line x1="750" y1="576" x2="750" y2="630" class="arrow" marker-end="url(#arrow)"/>
+  <text x="766" y="608" class="label">write strict · read structure-only</text>
+
+  <line x1="750" y1="748" x2="750" y2="794" class="arrow" marker-end="url(#arrow)"/>
+  <text x="766" y="778" class="label">one row per node</text>
+
+  <path d="M 890 510 L 914 510" class="arrow" marker-end="url(#arrow)"/>
+  <text x="895" y="500" class="note">CEL</text>
+
+  <!-- Notes -->
+  <rect x="40" y="910" width="700" height="80" rx="10" class="draft" stroke-dasharray="6 5"/>
+  <text x="60" y="936" class="box-title">Draft: cross-cloud (#5)</text>
+  <text x="60" y="958" class="box-text">Neutral atoms/statements and AWS → Azure translation.</text>
+  <text x="60" y="976" class="box-text">Not part of the same-provider morph described above.</text>
+
+  <rect x="760" y="910" width="700" height="80" rx="10" class="draft"/>
+  <text x="780" y="936" class="box-title">Verification</text>
+  <text x="780" y="958" class="box-text">126 tests · 2,500 generated Boolean trees · provider round-trips</text>
+  <text x="780" y="976" class="box-text">HTTP/DB tests run against PostgreSQL 16 in CI.</text>
+</svg>

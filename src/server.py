@@ -2,7 +2,7 @@
 
     GET  /healthz                              -> {"status": "ok"}
     POST /policies?provider=aws|azure|gcp      -> parse, store, return the root id
-    GET  /policies/<id>                        -> load the tree back (and emit AWS)
+    GET  /policies/<id>                        -> load the tree and emit its provider document
 
 The service is intentionally small: it reuses the parser, tree writer, loader,
 and emitter modules and adds no new policy logic. Configuration comes from the
@@ -21,22 +21,24 @@ from urllib.parse import parse_qs, urlparse
 
 import psycopg2
 
-if __package__:
-    from .awsPolicyEmitter import emit_policy
-    from .awsPolicyEntry import parse_policy as parse_aws
-    from .azurePolicyEmitter import emit_policy as emit_azure
-    from .azurePolicyEntry import parse_policy as parse_azure
-    from .gcpPolicyEntry import parse_policy as parse_gcp
-    from .policyTree import canonicalize, load_policy_tree, write_policy_tree
-else:  # pragma: no cover - direct script use
-    from awsPolicyEmitter import emit_policy
-    from awsPolicyEntry import parse_policy as parse_aws
-    from azurePolicyEmitter import emit_policy as emit_azure
-    from azurePolicyEntry import parse_policy as parse_azure
-    from gcpPolicyEntry import parse_policy as parse_gcp
-    from policyTree import canonicalize, load_policy_tree, write_policy_tree
+if not __package__:
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-PARSERS = {'aws': parse_aws, 'azure': parse_azure, 'gcp': parse_gcp}
+from src.conditions.cel import populate_condition_cel
+from src.tree import canonicalize
+from src.postgres.export import load_policy_tree
+from src.postgres.store import write_policy_tree
+from src.providers.aws.cel import aws
+from src.providers.aws.emitter import emit_policy
+from src.providers.aws.parser import parse_policy as parse_aws
+from src.providers.azure.cel import azure
+from src.providers.azure.emitter import emit_policy as emit_azure
+from src.providers.azure.parser import parse_policy as parse_azure
+from src.providers.gcp.emitter import emit_policy as emit_gcp
+from src.providers.gcp.parser import parse_policy as parse_gcp
+
+PARSERS = {'aws': (parse_aws, aws), 'azure': (parse_azure, azure), 'gcp': (parse_gcp, None)}
 MAX_BODY = 1024 * 1024
 POLICY_PATH = re.compile(r'^/policies/(\d+)$')
 
@@ -56,8 +58,8 @@ def count_nodes(tree):
     return 1 + sum(count_nodes(child) for child in tree.get('children', []))
 
 
-def _flag(params, name):
-    return params.get(name, [''])[0].lower() in ('1', 'true', 'yes')
+def _flag(params, name, default=False):
+    return params[name][0].lower() in ('1', 'true', 'yes') if name in params else default
 
 
 class PolicyHandler(BaseHTTPRequestHandler):
@@ -101,12 +103,13 @@ class PolicyHandler(BaseHTTPRequestHandler):
                 connection.close()
             tree = canonicalize(loaded) if _flag(params, 'canonical') else loaded
             payload = {'tree': tree}
-            # Emit from the lossless tree: canonicalization drops the grouping
-            # labels the Azure emitter uses.
+            # Emit from the lossless tree, which retains every source rule.
             if loaded.get('provider') == 'AWS':
                 payload['document'] = emit_policy(loaded)
             elif loaded.get('provider') == 'Azure':
                 payload['document'] = emit_azure(loaded)
+            elif loaded.get('provider') == 'GCP':
+                payload['document'] = emit_gcp(loaded)
             self._send(200, payload)
         except ValueError as exc:
             if 'not found' in str(exc):
@@ -126,13 +129,13 @@ class PolicyHandler(BaseHTTPRequestHandler):
         if provider not in PARSERS:
             return self._fail(400, 'provider must be one of: aws, azure, gcp')
         try:
-            source = json.loads(self._read_body())
-            if not isinstance(source, dict):
-                raise ValueError('The request body must be a JSON object')
+            source = self._read_body().decode('utf-8-sig')
             name = params.get('name', [None])[0]
-            tree = PARSERS[provider](source, name=name)
-            if _flag(params, 'canonical'):
-                tree = canonicalize(tree)
+            parse_policy, translate = PARSERS[provider]
+            tree = parse_policy(source, name=name)
+            if translate is not None and _flag(params, 'cel', default=True):
+                populate_condition_cel(tree, translate=translate)
+            counted_tree = canonicalize(tree) if _flag(params, 'canonical') else tree
             connection = connect()
             try:
                 # write_policy_tree owns the transaction (it re-enters the
@@ -141,7 +144,7 @@ class PolicyHandler(BaseHTTPRequestHandler):
             finally:
                 connection.close()
             self._send(201, {'id': root_id, 'provider': tree['provider'],
-                             'name': tree['name'], 'nodes': count_nodes(tree)})
+                             'name': tree['name'], 'nodes': count_nodes(counted_tree)})
         except json.JSONDecodeError as exc:
             self._fail(400, f'Invalid JSON: {exc.msg}')
         except ValueError as exc:

@@ -1,20 +1,10 @@
-"""Parse AWS IAM policies into field trees with source-preserving expressions.
-
-Condition expressions compare original field values, preserving case, lists,
-wildcards and nested objects. Allow/deny composition stays in the tree.
-"""
+"""Parse AWS IAM policies into source-preserving field trees."""
 
 import json
 
-if not __package__:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.conditionExpression import populate_condition_cel
-from src.policyDocument import load_document
-from src.policyTree import make_node, validate_tree
-from src.policyCli import run_cli
-from src.conditionSource import attach_json_source
+from ...document import load_document
+from ...tree import make_node, validate_tree
+from ...conditions.source import attach_json_source
 
 
 
@@ -53,7 +43,7 @@ def _check_statement(statement, index):
 
 
 def parse_policy(source, name=None, *, provider_detail='arn:aws'):
-    """Parse an AWS JSON policy into an allow-set minus an explicit-deny-set."""
+    """Parse AWS statement groups, separating declared Deny statements when present."""
     original = load_document(source)
     document = original
     if 'Statement' not in document and 'PolicyVersion' in document:
@@ -72,7 +62,7 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
     def node(label, operator='AND', **kwargs):
         return make_node(label, 'AWS', provider_detail, operator, **kwargs)
 
-    allows, denies = [], []
+    allowed, denied = [], []
     for index, statement in enumerate(statements, 1):
         _check_statement(statement, index)
         group = node(statement.get('Sid') or f'Statement {index}', children=[
@@ -82,27 +72,23 @@ def parse_policy(source, name=None, *, provider_detail='arn:aws'):
         ], condition_raw=json.dumps(statement))
         if 'Sid' in statement:
             group['display_name'] = '"Sid": ' + json.dumps(statement['Sid'])
-        (allows if statement['Effect'] == 'Allow' else denies).append(group)
+        (denied if statement['Effect'] == 'Deny' else allowed).append(group)
 
     policy_name = name or original.get('PolicyName') or original.get('Arn') or document.get('Id') or 'Statement'
-    root = node(policy_name, 'OR', children=allows,
+    operator = 'OR'
+    children = allowed
+    if denied:
+        operator = 'AND'
+        children = [
+            node('Allow statements', 'OR', children=allowed),
+            node('Exclude deny statements', 'NOT', children=[
+                node('Deny statements', 'OR', children=denied),
+            ]),
+        ]
+    root = node(policy_name, operator, children=children,
                 condition_raw=source if isinstance(source, str) else json.dumps(original))
-    if denies:
-        root['operator'] = 'AND'
-        root['children'] = [node('Allowed statements', 'OR', children=allows),
-                            node('Exclude explicit denies', 'NOT', children=[
-                                node('Denied statements', 'OR', children=denies)])]
     if 'Version' in document:
         root['display_name'] = '"Version": ' + json.dumps(document['Version'])
-    populate_condition_cel(root)
     attach_json_source(root, source)
     validate_tree(root)
     return root
-
-
-def main(argv=None):
-    return run_cli(parse_policy, argv)
-
-
-if __name__ == '__main__':
-    raise SystemExit(main())

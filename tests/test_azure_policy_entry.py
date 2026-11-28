@@ -2,19 +2,9 @@ from copy import deepcopy
 import json
 import unittest
 
-from src.azurePolicyEntry import parse_policy
-from src.policyTree import validate_tree
-from policy_support import ROOT, documents, evaluate, walk
-
-
-def action_matches(plane, action):
-    def match(expression):
-        if 'assignableScopes' in expression:
-            return True  # Scope eligibility is metadata, independent of action matching.
-        # Exact matching only: these tests verify set structure, not Azure wildcards.
-        return action in expression.get(plane, []) or action in expression.get(
-            'notActions' if plane == 'actions' else 'notDataActions', [])
-    return match
+from src.providers.azure.entry import parse_policy
+from src.tree import validate_tree
+from policy_support import ROOT, documents, walk
 
 
 class AzureParserTests(unittest.TestCase):
@@ -36,31 +26,91 @@ class AzureParserTests(unittest.TestCase):
             supported += 1
         self.assertGreaterEqual(supported, 9)
 
+    def test_unknown_permission_fields_become_leaves(self):
+        source = {'permissions': [{'actions': ['read'],
+                                   'futureField': {'nested': [1, 2]}}]}
+        tree = parse_policy(source)
+        grant = tree['children'][0]
+        leaf = next(child for child in grant['children']
+                    if child['name'] == 'futureField')
+        self.assertEqual(leaf['condition_json'],
+                         {'futureField': {'nested': [1, 2]}})
+
     def test_powershell_example_uses_the_single_block_shape(self):
         tree = parse_policy((ROOT / 'examples/azure-powershell-web-app.json').read_text())
         self.assertEqual(tree['display_name'], 'Web App Contributor')
         self.assertEqual(tree['provider_detail'],
                          'Microsoft.Authorization/roleDefinitions')
-        self.assertTrue(evaluate(tree, action_matches('actions', 'Microsoft.Web/sites/*')))
+        self.assertTrue(any('Microsoft.Web/sites/*' in (leaf['condition_json'] or {}).get('actions', [])
+                            for leaf in walk(tree)))
 
-    def test_control_and_data_planes_are_separate(self):
-        tree = parse_policy({'permissions': [{
-            'actions': ['read', 'write'], 'notActions': ['write'],
-            'dataActions': ['read', 'delete'], 'notDataActions': ['delete']}]})
-        for plane, action, expected in [('actions', 'read', True), ('actions', 'write', False),
-                                        ('dataActions', 'read', True), ('dataActions', 'delete', False),
-                                        ('dataActions', 'write', False)]:
-            self.assertEqual(evaluate(tree, action_matches(plane, action)), expected)
+    def test_permission_arrays_are_direct_leaves(self):
+        permission = {'actions': ['read', 'write'], 'notActions': ['write'],
+                      'dataActions': ['read', 'delete'], 'notDataActions': ['delete']}
+        tree = parse_policy({'permissions': [permission]})
+        block = tree['children'][0]
+        self.assertEqual(block['operator_onChildren'], 'AND')
+        self.assertEqual([leaf['condition_json'] for leaf in block['children']],
+                         [{key: value} for key, value in permission.items()])
+        self.assertTrue(all(not leaf['children'] and leaf['child_position'] is None
+                            for leaf in block['children']))
 
-    def test_not_actions_is_not_a_global_deny(self):
+    def test_not_actions_stays_in_its_permission_block(self):
         tree = parse_policy({'permissions': [
             {'actions': ['read', 'write'], 'notActions': ['write']},
             {'actions': ['write']}]})
-        self.assertTrue(evaluate(tree, action_matches('actions', 'write')))
+        self.assertEqual([[leaf['condition_json'] for leaf in block['children']]
+                          for block in tree['children']],
+                         [[{'actions': ['read', 'write']}, {'notActions': ['write']}],
+                          [{'actions': ['write']}]])
 
-    def test_empty_role_grants_nothing(self):
+    def test_explicitly_empty_permission_arrays_are_preserved(self):
         tree = parse_policy({'permissions': [{'actions': [], 'dataActions': []}]})
-        self.assertFalse(evaluate(tree, lambda expression: True))
+        self.assertEqual([leaf['condition_json'] for leaf in tree['children'][0]['children']],
+                         [{'actions': []}, {'dataActions': []}])
+
+    def test_policy_assignment_keeps_scopes_as_direct_condition_leaves(self):
+        properties = {'scope': '/subscriptions/example', 'notScopes': ['/subscriptions/example/resourceGroups/dev'],
+                      'policyDefinitionId': '/providers/Microsoft.Authorization/policyDefinitions/example'}
+        tree = parse_policy(json.dumps({'type': 'Microsoft.Authorization/policyAssignments',
+                                        'properties': properties}))
+        self.assertEqual(tree['operator_onChildren'], 'AND')
+        self.assertEqual([child['name'] for child in tree['children']], ['scope', 'notScopes'])
+        for child in tree['children']:
+            self.assertIsNone(child['child_position'])
+            self.assertEqual(child['children'], [])
+            key = child['name']
+            self.assertEqual(child['condition_json'], {key: properties[key]})
+
+    def test_deny_assignment_keeps_principal_fields_as_direct_children(self):
+        properties = {'principals': [{'id': 'principal', 'type': 'Group'}],
+                      'excludePrincipals': [{'id': 'exception', 'type': 'User'}],
+                      'permissions': [{'actions': ['write'], 'notActions': ['read']}]}
+        tree = parse_policy({'type': 'Microsoft.Authorization/denyAssignments', 'properties': properties})
+        self.assertEqual(tree['operator_onChildren'], 'AND')
+        self.assertEqual([child['name'] for child in tree['children']],
+                         ['permissions', 'principals', 'excludePrincipals'])
+        permissions, principals, excluded = tree['children']
+        for child in (principals, excluded):
+            self.assertIsNone(child['child_position'])
+            self.assertEqual(child['children'], [])
+            key = child['name']
+            self.assertEqual(child['condition_json'], {key: properties[key]})
+        self.assertEqual([leaf['condition_json'] for leaf in permissions['children'][0]['children']],
+                         [{'actions': ['write']}, {'notActions': ['read']}])
+
+    def test_negated_rule_comparisons_stay_as_source_leaves(self):
+        comparisons = [{'field': 'location', 'notIn': ['eastus']},
+                       {'field': 'name', 'notLike': 'example*'},
+                       {'value': "[field('name')]", 'notContains': 'foo'}]
+        tree = parse_policy(json.dumps({'policyRule': {'if': {'allOf': comparisons},
+                                                      'then': {'effect': 'audit'}}}))
+        applicability = tree['children'][0]
+        self.assertEqual(applicability['operator_onChildren'], 'AND')
+        for condition, expression in zip(applicability['children'], comparisons):
+            self.assertEqual(condition['condition_json'], expression)
+            self.assertEqual(condition['children'], [])
+            self.assertIsNone(condition['condition_cel'])
 
     def test_rest_cli_and_powershell_shapes(self):
         for source in [
@@ -70,7 +120,7 @@ class AzureParserTests(unittest.TestCase):
             tree = parse_policy(source, name='override')
             self.assertEqual(tree['name'], 'override')
             self.assertEqual(tree['display_name'], 'Reader')
-            self.assertTrue(evaluate(tree, action_matches('actions', 'read')))
+            self.assertTrue(any(node['condition_json'] == {'actions': ['read']} for node in walk(tree)))
 
     def test_conditional_permissions_are_not_dropped(self):
         tree = parse_policy({'permissions': [{'actions': ['read'], 'condition': 'request == allowed',
@@ -89,7 +139,7 @@ class AzureParserTests(unittest.TestCase):
         self.assertEqual(tree['provider_detail'], 'Microsoft.Authorization/policyDefinitions')
         self.assertIn({'effect': 'audit'}, [n['condition_json'] for n in walk(tree)])
         self.assertEqual(json.loads(tree['condition_raw']), source)
-        self.assertEqual([node['operator'] for node in walk(tree)].count('NOT'), 1)
+        self.assertEqual([node['operator_onChildren'] for node in walk(tree)].count('NOT'), 1)
         self.assertIsNone(tree['condition_json'])
 
     def test_audit_example_matches_sql_sketch_with_predicate_cel(self):
@@ -107,15 +157,15 @@ class AzureParserTests(unittest.TestCase):
         self.assertTrue(all(n['condition_cel'] is not None for n in walk(tree) if n['condition_json'] is not None))
         self.assertTrue(all(n['condition_cel'] is None for n in walk(tree) if n['children']))
         applicability, outcome = tree['children']
-        self.assertEqual(applicability['operator'], 'AND')
-        self.assertEqual(applicability['children'][1]['operator'], 'NOT')
-        self.assertEqual(outcome['operator'], 'AND')
+        self.assertEqual(applicability['operator_onChildren'], 'AND')
+        self.assertEqual(applicability['children'][1]['operator_onChildren'], 'NOT')
+        self.assertEqual(outcome['operator_onChildren'], 'AND')
         effect, details = outcome['children']
         self.assertEqual(effect['condition_cel'], 'effect == "audit"')
         self.assertEqual(effect['condition_json'], {'effect': 'audit'})
         self.assertEqual(effect['condition_raw'], '"effect": "audit"')
         self.assertEqual(details['name'], 'details')
-        self.assertEqual(details['operator'], 'AND')
+        self.assertEqual(details['operator_onChildren'], 'AND')
         self.assertEqual(details['children'][0]['condition_cel'], 'type == "Microsoft.Compute/virtualMachines"')
         self.assertEqual(details['children'][-1]['condition_cel'], 'severity == "Critical"')
         self.assertEqual([n['condition_json'] for n in details['children']],
@@ -124,9 +174,9 @@ class AzureParserTests(unittest.TestCase):
     def test_classic_role_has_scope_expression(self):
         source = (ROOT / 'examples/azure-classic-vm-role.json').read_text()
         tree = parse_policy(source)
-        self.assertEqual(tree['operator'], 'AND')
+        self.assertEqual(tree['operator_onChildren'], 'AND')
         permissions, scopes = tree['children']
-        self.assertEqual(permissions['operator'], 'OR')
+        self.assertEqual(permissions['operator_onChildren'], 'OR')
         self.assertEqual(scopes['name'], 'assignableScopes')
         self.assertEqual(scopes['condition_json'], {'assignableScopes': ['/']})
         self.assertEqual(scopes['condition_cel'], 'assignableScopes == ["/"]')

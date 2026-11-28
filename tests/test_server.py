@@ -60,22 +60,39 @@ class ServerTests(unittest.TestCase):
 
     def test_parse_store_load_and_emit(self):
         source = json.loads((ROOT / 'examples/aws-ec2-readonly.json').read_text())
-        status, created = call(self.base + '/policies?provider=aws&name=ec2-readonly',
-                               method='POST', body=source)
-        self.assertEqual(status, 201)
-        self.created = [created['id']]
-        self.assertEqual(created['provider'], 'AWS')
-        self.assertGreater(created['nodes'], 1)
+        self.created = []
+        for option, expected in (('', 'Action.matches("^ec2:Describe.*$")'), ('&cel=false', None)):
+            with self.subTest(option=option):
+                status, created = call(
+                    self.base + '/policies?provider=aws&name=ec2-readonly' + option,
+                    method='POST', body=source)
+                self.assertEqual(status, 201)
+                self.created.append(created['id'])
+                self.assertEqual(created['provider'], 'AWS')
+                self.assertGreater(created['nodes'], 1)
 
-        status, payload = call(self.base + '/policies/%d' % created['id'])
-        self.assertEqual(status, 200)
-        self.assertEqual(payload['document'], source)
-        self.assertEqual(payload['tree']['name'], 'ec2-readonly')
-        self.assertEqual(len(payload['tree']['children']), 4)
+                status, payload = call(self.base + '/policies/%d' % created['id'])
+                self.assertEqual(status, 200)
+                self.assertEqual(payload['document'], source)
+                tree = payload['tree']
+                self.assertEqual(tree['name'], 'ec2-readonly')
+                self.assertEqual(len(tree['children']), 4)
+                self.assertEqual(tree['condition_raw'], json.dumps(source))
+                self.assertEqual(tree['children'][0]['children'][1]['condition_cel'], expected)
 
     def test_azure_tree_has_its_document(self):
         source = json.loads((ROOT / 'examples/azure-classic-vm-role.json').read_text())
         status, created = call(self.base + '/policies?provider=azure', method='POST', body=source)
+        self.assertEqual(status, 201)
+        self.created = [created['id']]
+        status, payload = call(self.base + '/policies/%d' % created['id'])
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['document'], source)
+
+    def test_gcp_tree_has_its_document(self):
+        source = json.loads((ROOT / 'examples/gcp-iam-bindings.json').read_text())
+        status, created = call(self.base + '/policies?provider=gcp',
+                               method='POST', body=source)
         self.assertEqual(status, 201)
         self.created = [created['id']]
         status, payload = call(self.base + '/policies/%d' % created['id'])
@@ -90,6 +107,22 @@ class ServerTests(unittest.TestCase):
         _, plain = call(self.base + '/policies/%d' % created['id'])
         _, reduced = call(self.base + '/policies/%d?canonical=1' % created['id'])
         self.assertLessEqual(self._nodes(reduced['tree']), self._nodes(plain['tree']))
+
+    def test_canonical_import_reports_reduced_count_and_retains_original_policy(self):
+        source = json.loads((ROOT / 'examples/aws-deny-outside-regions.json').read_text())
+        status, created = call(self.base + '/policies?provider=aws&canonical=1',
+                               method='POST', body=source)
+        self.assertEqual(status, 201)
+        self.created = [created['id']]
+        self.assertEqual(created['nodes'], 1)
+        url = self.base + '/policies/%d' % created['id']
+        status, original = call(url)
+        self.assertEqual(status, 200)
+        self.assertGreater(self._nodes(original['tree']), created['nodes'])
+        status, reduced = call(url + '?canonical=1')
+        self.assertEqual(status, 200)
+        self.assertEqual(self._nodes(reduced['tree']), created['nodes'])
+        self.assertEqual(reduced['document'], source)
 
     def test_bad_requests(self):
         self.assertEqual(400, call(self.base + '/policies?provider=nope', method='POST',

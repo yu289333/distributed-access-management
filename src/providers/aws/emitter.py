@@ -1,7 +1,7 @@
 """Reconstruct an AWS IAM policy document from a policy tree.
 
 This is the outbound half of the AWS morph: it accepts a tree produced by
-``awsPolicyEntry.parse_policy`` (or the same tree read back from the database)
+``providers.aws.entry.parse_policy`` (or the same tree read back from the database)
 and returns an AWS policy dictionary. It is deliberately narrow:
 
 * only AWS trees are accepted; an Azure or GCP tree is not a cross-cloud input,
@@ -13,32 +13,19 @@ Because the parser keeps each statement verbatim in ``condition_json``, this
 round trip does not depend on a condition translation layer.
 """
 
-import argparse
 from collections import Counter
 from copy import deepcopy
 import json
-from pathlib import Path
 
-if not __package__:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.awsPolicyEntry import _check_statement
-from src.policyTree import validate_tree
-
-
-def _check_provider(tree):
-    pending = [tree]
-    while pending:
-        node = pending.pop()
-        if node.get('provider') != 'AWS':
-            raise ValueError('emit_policy requires a tree whose nodes all have provider AWS')
-        pending.extend(node.get('children', []))
+from .parser import _check_statement
+from ..common import check_provider
+from ...cli import run_emit_cli
+from ...tree import validate_tree
 
 
 def _group(node, label):
     """A group is an OR of statement groups, a group, or a leaf."""
-    if node.get('operator') == 'OR':
+    if node.get('operator_onChildren') == 'OR':
         return node.get('children', [])
     if node.get('children') or node.get('condition_json') is not None:
         return [node]
@@ -48,15 +35,17 @@ def _group(node, label):
 def _statement_groups(tree):
     """Locate the allow and deny statement groups in a parse_policy-shaped tree."""
     children = tree.get('children', [])
-    if tree.get('operator') == 'OR':
+    if tree.get('operator_onChildren') == 'OR':
         return children, []
-    if tree.get('operator') == 'AND' and len(children) == 2:
+    if tree.get('operator_onChildren') == 'AND' and len(children) == 2:
         allowed, excluded = children
+        if allowed.get('operator_onChildren') == 'NOT':
+            allowed, excluded = excluded, allowed
         denied = excluded.get('children', [])
-        if excluded.get('operator') == 'NOT' and len(denied) == 1:
+        if excluded.get('operator_onChildren') == 'NOT' and len(denied) == 1:
             return _group(allowed, 'allows'), _group(denied[0], 'denies')
-    raise ValueError('Unexpected AWS tree shape; expected OR(allows) or '
-                     'AND(OR(allows), NOT(OR(denies))), optionally canonicalized')
+    raise ValueError('Unexpected AWS tree shape; expected OR(statements) or '
+                     'AND(OR(allows), NOT(OR(denies)))')
 
 
 def _sid(node):
@@ -169,8 +158,8 @@ def _restore_order(original, statements):
 
 def emit_policy(tree):
     """Return an AWS policy document reconstructed from an AWS policy tree."""
-    validate_tree(tree)
-    _check_provider(tree)
+    validate_tree(tree, check_source=False)
+    check_provider(tree, 'AWS')
     allowed, denied = _statement_groups(tree)
     nodes = list(allowed) + list(denied)
     statements = [_statement(node, index)
@@ -186,20 +175,7 @@ emit_aws = emit_policy
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description='Rebuild an AWS policy JSON document from a policy tree')
-    parser.add_argument('file', type=Path,
-                        help='A policy tree JSON file, e.g. --dry-run output')
-    parser.add_argument('--indent', type=int, default=2,
-                        help='Indentation of the printed JSON (default: 2)')
-    args = parser.parse_args(argv)
-    try:
-        tree = json.loads(args.file.read_text(encoding='utf-8-sig'))
-        document = emit_policy(tree)
-    except (OSError, TypeError, ValueError) as exc:
-        parser.error(str(exc))
-    print(json.dumps(document, indent=args.indent))
-    return 0
+    return run_emit_cli('Rebuild an AWS policy JSON document from a policy tree', emit_policy, argv)
 
 
 if __name__ == '__main__':

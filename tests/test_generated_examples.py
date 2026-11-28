@@ -1,9 +1,9 @@
 import json
 import unittest
 
-from src.awsPolicyEntry import parse_policy as parse_aws
-from src.azurePolicyEmitter import emit_policy as emit_azure
-from src.policyTree import strip_database_ids, validate_tree
+from src.providers.aws.entry import parse_policy as parse_aws
+from src.providers.azure.emitter import emit_policy as emit_azure
+from src.tree import strip_database_ids, validate_tree
 from policy_support import ROOT, walk
 
 # The AWS snapshot is regenerated with each parser change, so it is a strict

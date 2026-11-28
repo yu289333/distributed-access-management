@@ -1,0 +1,1 @@
+"""GCP policy adapter."""

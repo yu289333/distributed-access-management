@@ -4,7 +4,7 @@ import unittest
 
 import psycopg2
 
-from src.backfillCel import backfill
+from src.cli import convert_conditions as backfill
 
 
 @unittest.skipUnless(os.environ.get('DATABASE_URL'), 'DATABASE_URL required for PostgreSQL integration')
@@ -14,7 +14,7 @@ class BackfillTests(unittest.TestCase):
         with self.connection:
             with self.connection.cursor() as cursor:
                 cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
-                cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail, operator, condition_json)
+                cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail, "operator_onChildren", condition_json)
                                   VALUES (1, NULL, 'root', 'AWS', 'arn:aws', 'OR', NULL),
                                          (2, 1, 'action', 'AWS', 'arn:aws', 'AND', '{"Action":"ec2:Describe*"}'),
                                          (3, 1, 'raw', 'AWS', 'arn:aws', 'AND', NULL)''')
@@ -33,11 +33,11 @@ class BackfillTests(unittest.TestCase):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT condition_cel FROM policy WHERE id=1')
             self.assertIsNone(cursor.fetchone()[0])
-            cursor.execute('SELECT condition_origin, condition_json FROM policy WHERE id=3')
+            cursor.execute('SELECT condition_raw_type, condition_json FROM policy WHERE id=3')
             self.assertEqual(cursor.fetchone(), ('json', {'Resource': '*'}))
 
     def test_replace_checks_raw_json_agreement(self):
-        from src.convertConditions import convert_conditions
+        from src.cli import convert_conditions
         backfill(self.connection, apply=True)
         with self.connection:
             with self.connection.cursor() as cursor:

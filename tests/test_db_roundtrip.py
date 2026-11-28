@@ -1,14 +1,19 @@
+from contextlib import closing
 import json
 import os
 import unittest
 
 import psycopg2
 
-from src.awsPolicyEmitter import emit_policy
-from src.azurePolicyEmitter import emit_policy as emit_azure
-from src.awsPolicyEntry import parse_policy as parse_aws
-from src.azurePolicyEntry import parse_policy as parse_azure
-from src.policyTree import load_policy_tree, strip_database_ids, write_policy_tree
+from src.providers.aws.emitter import emit_policy
+from src.providers.azure.emitter import emit_policy as emit_azure
+from src.providers.aws.entry import parse_policy as parse_aws
+from src.providers.azure.entry import parse_policy as parse_azure
+from src.providers.gcp.emitter import emit_policy as emit_gcp
+from src.providers.gcp.entry import parse_policy as parse_gcp
+from src.postgres.export import load_policy_tree
+from src.postgres.store import write_policy_tree
+from src.tree import strip_database_ids
 from policy_support import ROOT
 
 DSN = os.environ.get('DATABASE_URL')
@@ -33,6 +38,36 @@ DELETE_SUBTREE = '''
 
 @unittest.skipUnless(DSN, 'DATABASE_URL required for the storage round trip')
 class DatabaseRoundTripTests(unittest.TestCase):
+    def test_aws_loads_allow_and_negated_deny_groups(self):
+        source = (ROOT / 'examples/aws-s3-deny-except-bucket.json').read_text()
+        tree = parse_aws(source)
+        with closing(psycopg2.connect(DSN)) as connection:
+            with connection, connection.cursor() as cursor:
+                cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
+            root_id = write_policy_tree(connection, tree)
+            loaded = load_policy_tree(connection, root_id)
+            self.assertEqual([child['operator_onChildren'] for child in loaded['children']], ['OR', 'NOT'])
+            self.assertEqual(loaded, parse_aws(source))
+            self.assertEqual(emit_policy(loaded), json.loads(source))
+
+    def test_gcp_unified_access_preserves_rule_order(self):
+        principal = 'principal://goog/subject/alice@example.com'
+        source = {'details': {'rules': [
+            {'effect': 'DENY', 'principals': [principal],
+             'operation': {'permissions': ['compute.googleapis.com/instances.delete']}},
+            {'effect': 'ALLOW', 'principals': [principal],
+             'operation': {'permissions': ['role:roles/compute.admin']}},
+        ]}}
+        tree = parse_gcp(source)
+        tree['children'].reverse()
+        with closing(psycopg2.connect(DSN)) as connection:
+            with connection, connection.cursor() as cursor:
+                cursor.execute('CREATE TEMP TABLE policy (LIKE public.policy INCLUDING DEFAULTS)')
+            root_id = write_policy_tree(connection, tree)
+            loaded = load_policy_tree(connection, root_id)
+            self.assertEqual(loaded, tree)
+            self.assertEqual(emit_gcp(loaded), source)
+
     def test_exported_trees_survive_the_database(self):
         """A stored tree reads back unchanged, and an AWS tree still emits."""
         for generated, source, parser in PAIRS:
