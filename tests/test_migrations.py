@@ -109,6 +109,9 @@ class MigrationTests(unittest.TestCase):
                                         "operator_onChildren", child_position)
                                   VALUES (5, 4, 'a', 'AWS', 'arn:aws', 'AND', 0),
                                          (6, 4, 'b', 'AWS', 'arn:aws', 'AND', 1)''')
+                # Explicit ids do not advance the serial sequence; migration 005
+                # inserts the NOT wrapper with nextval().
+                cursor.execute("SELECT setval(pg_get_serial_sequence('policy', 'id'), 100)")
 
             apply(connection, '005_replace_subtract.sql')
 
