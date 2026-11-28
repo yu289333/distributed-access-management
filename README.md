@@ -313,7 +313,7 @@ back the whole tree on an insertion failure. Use a dedicated connection with
 autocommit disabled, since it commits or rolls back that connection's current
 transaction. `insert_policy_tree(cursor, tree)` leaves transaction ownership to
 the caller. Both accept optional `table` and `schema` arguments, quoted as SQL
-identifiers. Each call inserts a new tree; no schema migration or deduplication
+identifiers. Each call inserts a new tree; duplicates are not merged
 is performed.
 
 `load_policy_tree(cursor, root_id)` reverses the write: one recursive query
@@ -363,9 +363,8 @@ input policy; group source is context, not a separate leaf predicate.
 Azure array fields stay intact in one leaf so their raw fragments can come from
 the input.
 
-Fresh databases use `db/policy.sql`; it is the only supported schema.
-`db/scaffolding/` holds the one-off SQL that moved pre-v2 test data. It is not
-part of the runtime, is not run by CI, and can be deleted after the transfer.
+`db/policy.sql` is the only schema. There is no upgrade path: when the schema
+changes, recreate the database from `db/policy.sql`.
 
 Shared modules are separated by responsibility:
 
