@@ -104,11 +104,11 @@ class MigrationTests(unittest.TestCase):
             with connection.cursor() as cursor:
                 cursor.execute('''INSERT INTO policy (id, name, provider, provider_detail,
                                         "operator_onChildren")
-                                  VALUES (3, 'subtract', 'AWS', 'arn:aws', 'SUBTRACT'),''')
+                                  VALUES (4, 'subtract', 'AWS', 'arn:aws', 'SUBTRACT')''')
                 cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
                                         "operator_onChildren", child_position)
-                                  VALUES (4, 3, 'a', 'AWS', 'arn:aws', 'AND', 0),
-                                         (5, 3, 'b', 'AWS', 'arn:aws', 'AND', 1)''')
+                                  VALUES (5, 4, 'a', 'AWS', 'arn:aws', 'AND', 0),
+                                         (6, 4, 'b', 'AWS', 'arn:aws', 'AND', 1)''')
 
             apply(connection, '005_replace_subtract.sql')
 
