@@ -2,7 +2,7 @@
 
     GET  /healthz                              -> {"status": "ok"}
     POST /policies?provider=aws|azure|gcp      -> parse, store, return the root id
-    GET  /policies/<id>                        -> load the tree back (and emit AWS)
+    GET  /policies/<id>                        -> load the tree and emit its provider document
 
 The service is intentionally small: it reuses the parser, tree writer, loader,
 and emitter modules and adds no new policy logic. Configuration comes from the
