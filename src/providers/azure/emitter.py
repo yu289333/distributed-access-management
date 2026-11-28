@@ -68,10 +68,12 @@ def _block(node, original):
         expression = plane.get('condition_json')
         if expression is not None:
             key = plane.get('name')
-            if (key not in PERMISSION_FIELDS or not isinstance(expression, dict)
-                    or set(expression) != {key} or not isinstance(expression[key], list)):
+            if not isinstance(expression, dict) or set(expression) != {key}:
                 raise ValueError(f'Unexpected Azure permission leaf: {key!r}')
-            permission[key] = deepcopy(expression[key])
+            value = expression[key]
+            if key in PERMISSION_FIELDS and not isinstance(value, list):
+                raise ValueError(f'Azure {key} must be a list')
+            permission[key] = deepcopy(value)
             continue
         include, exclude = plane.get('name', '').split(' minus ')
         parts = plane.get('children', [])
@@ -142,6 +144,9 @@ def _emit_rbac(tree, document):
                               ('Actions', 'NotActions', 'DataActions', 'NotDataActions')):
             if key in block or upper in document:
                 document[upper] = block.get(key, [])
+        for key, value in block.items():
+            if key.lower() not in {'actions', 'notactions', 'dataactions', 'notdataactions'}:
+                document[key] = value
         if scopes is not None:
             document['AssignableScopes'] = scopes
     elif isinstance(document.get('properties'), dict):

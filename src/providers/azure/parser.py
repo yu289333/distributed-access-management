@@ -1,5 +1,6 @@
 """Parse Azure RBAC role definitions and Azure Policy applicability rules."""
 
+from copy import deepcopy
 import json
 
 from ...policyDocument import load_document
@@ -42,6 +43,12 @@ def _rbac_tree(document, name, detail=RBAC_DETAIL):
             if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
                 raise ValueError(f'Azure {key} must be a list of nonempty strings')
             leaves.append(node(key, condition_json={key: values}))
+        known = {field.lower() for field in PERMISSION_FIELDS} | {'condition'}
+        for key, value in block.items():
+            lowered = key.lower()
+            if lowered in known or (lowered == 'conditionversion' and 'condition' in permission):
+                continue
+            leaves.append(node(key, condition_json={key: deepcopy(value)}))
         grant = node(f'Permission block {index}', 'AND', children=leaves,
                      condition_raw=json.dumps(block))
         if 'condition' in permission:

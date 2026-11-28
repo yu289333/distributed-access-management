@@ -26,6 +26,16 @@ class AzureParserTests(unittest.TestCase):
             supported += 1
         self.assertGreaterEqual(supported, 9)
 
+    def test_unknown_permission_fields_become_leaves(self):
+        source = {'permissions': [{'actions': ['read'],
+                                   'futureField': {'nested': [1, 2]}}]}
+        tree = parse_policy(source)
+        grant = tree['children'][0]
+        leaf = next(child for child in grant['children']
+                    if child['name'] == 'futureField')
+        self.assertEqual(leaf['condition_json'],
+                         {'futureField': {'nested': [1, 2]}})
+
     def test_powershell_example_uses_the_single_block_shape(self):
         tree = parse_policy((ROOT / 'examples/azure-powershell-web-app.json').read_text())
         self.assertEqual(tree['display_name'], 'Web App Contributor')

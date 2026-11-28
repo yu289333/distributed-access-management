@@ -33,6 +33,17 @@ class AzureEmitterTests(unittest.TestCase):
                 expected = json.loads((ROOT / 'examples' / source).read_text())
                 self.assertEqual(emit_policy(tree), expected)
 
+    def test_unknown_permission_fields_round_trip_and_can_be_edited(self):
+        source = {'permissions': [{'actions': ['read'],
+                                   'futureField': {'nested': [1, 2]}}]}
+        tree = parse_policy(source)
+        self.assertEqual(emit_policy(tree), source)
+        leaf = next(child for child in tree['children'][0]['children']
+                    if child['name'] == 'futureField')
+        leaf['condition_json']['futureField'] = {'nested': [3]}
+        self.assertEqual(emit_policy(tree)['permissions'][0]['futureField'],
+                         {'nested': [3]})
+
     def test_rbac_edits_are_reflected(self):
         tree = parse_policy((ROOT / 'examples/azure-classic-vm-role.json').read_text())
         leaf = tree['children'][0]['children'][0]['children'][0]

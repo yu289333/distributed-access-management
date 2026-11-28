@@ -116,8 +116,9 @@ the source. Explicit empty arrays remain leaves. Conditional permission
 blocks retain their native condition expression as an additional AND predicate.
 Assignable scopes describe where a role can be assigned; they are preserved in
 the original source, not treated as the scope of an actual role assignment.
-Permission fields this parser does not know are not represented as leaves; they
-remain in the root `condition_raw` and are restored by the emitter.
+Every permission key becomes a leaf, including keys this parser does not know.
+Unknown keys round-trip through the emitter and can be edited like the known
+`actions`/`notActions`/`dataActions`/`notDataActions` arrays.
 
 An Azure Policy assignment with an explicit `scope` has an AND root with
 separate condition leaves for `scope` and `notScopes`. An Azure RBAC deny assignment
