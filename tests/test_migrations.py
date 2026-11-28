@@ -79,8 +79,11 @@ class MigrationTests(unittest.TestCase):
                                     operator, condition_origin)
                                   VALUES (1, 'root', 'AWS', 'arn:aws', 'OR', 'json')''')
                 cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
+                                    operator)
+                                  VALUES (2, 1, 'Statement', 'AWS', 'arn:aws', 'AND')''')
+                cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
                                     operator, condition_json, condition_origin)
-                                  VALUES (2, 1, 'Effect', 'AWS', 'arn:aws', 'AND',
+                                  VALUES (3, 2, 'Effect', 'AWS', 'arn:aws', 'AND',
                                           '{"Effect": "Allow"}'::jsonb, 'json')''')
 
             apply(connection, '002_policy_fields.sql', '003_remove_xor.sql')
@@ -110,16 +113,16 @@ class MigrationTests(unittest.TestCase):
             apply(connection, '005_replace_subtract.sql')
 
             with connection.cursor() as cursor:
-                cursor.execute('SELECT "operator_onChildren" FROM policy WHERE id = 3')
+                cursor.execute('SELECT "operator_onChildren" FROM policy WHERE id = 4')
                 self.assertEqual(cursor.fetchone()[0], 'AND')
                 cursor.execute('''SELECT id, parent, child_position FROM policy
-                                  WHERE parent = 3 AND "operator_onChildren" = 'NOT' ''')
+                                  WHERE parent = 4 AND "operator_onChildren" = 'NOT' ''')
                 not_id, parent, position = cursor.fetchone()
-                self.assertEqual((parent, position), (3, 1))
-                cursor.execute('SELECT parent, child_position FROM policy WHERE id = 5')
+                self.assertEqual((parent, position), (4, 1))
+                cursor.execute('SELECT parent, child_position FROM policy WHERE id = 6')
                 self.assertEqual(cursor.fetchone(), (not_id, None))
-                cursor.execute('SELECT parent, child_position FROM policy WHERE id = 4')
-                self.assertEqual(cursor.fetchone(), (3, 0))
+                cursor.execute('SELECT parent, child_position FROM policy WHERE id = 5')
+                self.assertEqual(cursor.fetchone(), (4, 0))
             self.assertNotIn('SUBTRACT', enum_labels(connection, schema))
         finally:
             drop(connection, schema)
