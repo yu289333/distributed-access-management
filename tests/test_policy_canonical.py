@@ -89,7 +89,7 @@ class CanonicalizeTests(unittest.TestCase):
 
     def test_generated_trees_keep_truth_values_and_shrink(self):
         rng = random.Random(20261128)
-        for index in range(300):
+        for index in range(2500):
             expression = random_expression(rng, 3)
             with self.subTest(index=index, expression=expression):
                 original = boolean_tree(expression)

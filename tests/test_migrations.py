@@ -66,6 +66,62 @@ def enum_labels(connection, schema):
         return {row[0] for row in cursor.fetchall()}
 
 
+def seed(connection):
+    """Insert a root OR, a statement AND, and an Effect field leaf."""
+    with connection.cursor() as cursor:
+        cursor.execute('''INSERT INTO policy (id, name, provider, provider_detail,
+                            operator, condition_origin)
+                          VALUES (1, 'root', 'AWS', 'arn:aws', 'OR', 'json')''')
+        cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
+                            operator)
+                          VALUES (2, 1, 'Statement', 'AWS', 'arn:aws', 'AND')''')
+        cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
+                            operator, condition_json, condition_origin)
+                          VALUES (3, 2, 'Effect', 'AWS', 'arn:aws', 'AND',
+                                  '{"Effect": "Allow"}'::jsonb, 'json')''')
+
+
+def seed_subtract(connection):
+    """Insert a SUBTRACT node with operands at positions 0 and 1."""
+    with connection.cursor() as cursor:
+        cursor.execute('''INSERT INTO policy (id, name, provider, provider_detail,
+                                "operator_onChildren")
+                          VALUES (4, 'subtract', 'AWS', 'arn:aws', 'SUBTRACT')''')
+        cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
+                                "operator_onChildren", child_position)
+                          VALUES (5, 4, 'a', 'AWS', 'arn:aws', 'AND', 0),
+                                 (6, 4, 'b', 'AWS', 'arn:aws', 'AND', 1)''')
+        # Explicit ids do not advance the serial sequence; migration 005 inserts
+        # the NOT wrapper with nextval().
+        cursor.execute("SELECT setval(pg_get_serial_sequence('policy', 'id'), 100)")
+
+
+def assert_upgraded(test, connection, schema):
+    present = columns(connection, schema)
+    test.assertIn('operator_onChildren', present)
+    test.assertIn('condition_raw_type', present)
+    test.assertIn('effect', present)
+    test.assertIn('child_position', present)
+    test.assertNotIn('operator', present)
+    test.assertNotIn('condition_origin', present)
+    test.assertNotIn('XOR', enum_labels(connection, schema))
+
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT effect FROM policy WHERE id = 2')
+        test.assertEqual(cursor.fetchone()[0], 'allow')
+        cursor.execute('SELECT "operator_onChildren" FROM policy WHERE id = 4')
+        test.assertEqual(cursor.fetchone()[0], 'AND')
+        cursor.execute('''SELECT id, parent, child_position FROM policy
+                          WHERE parent = 4 AND "operator_onChildren" = 'NOT' ''')
+        not_id, parent, position = cursor.fetchone()
+        test.assertEqual((parent, position), (4, 1))
+        cursor.execute('SELECT parent, child_position FROM policy WHERE id = 6')
+        test.assertEqual(cursor.fetchone(), (not_id, None))
+        cursor.execute('SELECT parent, child_position FROM policy WHERE id = 5')
+        test.assertEqual(cursor.fetchone(), (4, 0))
+    test.assertNotIn('SUBTRACT', enum_labels(connection, schema))
+
+
 @unittest.skipUnless(DSN, 'DATABASE_URL required for migration tests')
 class MigrationTests(unittest.TestCase):
     def test_upgrade_path(self):
@@ -74,60 +130,36 @@ class MigrationTests(unittest.TestCase):
         connection.autocommit = True
         try:
             fresh(connection, schema)
-            with connection.cursor() as cursor:
-                cursor.execute('''INSERT INTO policy (id, name, provider, provider_detail,
-                                    operator, condition_origin)
-                                  VALUES (1, 'root', 'AWS', 'arn:aws', 'OR', 'json')''')
-                cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
-                                    operator)
-                                  VALUES (2, 1, 'Statement', 'AWS', 'arn:aws', 'AND')''')
-                cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
-                                    operator, condition_json, condition_origin)
-                                  VALUES (3, 2, 'Effect', 'AWS', 'arn:aws', 'AND',
-                                          '{"Effect": "Allow"}'::jsonb, 'json')''')
-
+            seed(connection)
             apply(connection, '002_policy_fields.sql', '003_remove_xor.sql')
-
-            present = columns(connection, schema)
-            self.assertIn('operator_onChildren', present)
-            self.assertIn('condition_raw_type', present)
-            self.assertIn('effect', present)
-            self.assertNotIn('operator', present)
-            self.assertNotIn('condition_origin', present)
-            self.assertNotIn('XOR', enum_labels(connection, schema))
-
             with connection.cursor() as cursor:
                 cursor.execute('SELECT effect FROM policy WHERE id = 2')
                 self.assertEqual(cursor.fetchone()[0], 'allow')
-
             apply(connection, '004_subtract_operands.sql')
-            with connection.cursor() as cursor:
-                cursor.execute('''INSERT INTO policy (id, name, provider, provider_detail,
-                                        "operator_onChildren")
-                                  VALUES (4, 'subtract', 'AWS', 'arn:aws', 'SUBTRACT')''')
-                cursor.execute('''INSERT INTO policy (id, parent, name, provider, provider_detail,
-                                        "operator_onChildren", child_position)
-                                  VALUES (5, 4, 'a', 'AWS', 'arn:aws', 'AND', 0),
-                                         (6, 4, 'b', 'AWS', 'arn:aws', 'AND', 1)''')
-                # Explicit ids do not advance the serial sequence; migration 005
-                # inserts the NOT wrapper with nextval().
-                cursor.execute("SELECT setval(pg_get_serial_sequence('policy', 'id'), 100)")
-
+            seed_subtract(connection)
             apply(connection, '005_replace_subtract.sql')
-
-            with connection.cursor() as cursor:
-                cursor.execute('SELECT "operator_onChildren" FROM policy WHERE id = 4')
-                self.assertEqual(cursor.fetchone()[0], 'AND')
-                cursor.execute('''SELECT id, parent, child_position FROM policy
-                                  WHERE parent = 4 AND "operator_onChildren" = 'NOT' ''')
-                not_id, parent, position = cursor.fetchone()
-                self.assertEqual((parent, position), (4, 1))
-                cursor.execute('SELECT parent, child_position FROM policy WHERE id = 6')
-                self.assertEqual(cursor.fetchone(), (not_id, None))
-                cursor.execute('SELECT parent, child_position FROM policy WHERE id = 5')
-                self.assertEqual(cursor.fetchone(), (4, 0))
-            self.assertNotIn('SUBTRACT', enum_labels(connection, schema))
+            assert_upgraded(self, connection, schema)
         finally:
+            drop(connection, schema)
+            connection.close()
+
+    def test_upgrade_path_in_one_transaction(self):
+        # Matches the documented `psql -1 -f 002 ... -f 005` invocation.
+        schema = 'migration_test_transaction'
+        connection = psycopg2.connect(DSN)
+        connection.autocommit = False
+        try:
+            fresh(connection, schema)
+            seed(connection)
+            apply(connection, '002_policy_fields.sql', '003_remove_xor.sql')
+            apply(connection, '004_subtract_operands.sql')
+            seed_subtract(connection)
+            apply(connection, '005_replace_subtract.sql')
+            connection.commit()
+            assert_upgraded(self, connection, schema)
+        finally:
+            connection.rollback()
+            connection.autocommit = True
             drop(connection, schema)
             connection.close()
 
